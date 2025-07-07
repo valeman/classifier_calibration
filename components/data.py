@@ -57,7 +57,9 @@ class DatasetSuite:
         match suite_name:
             case "Tabarena-v0.1":
                 self.dataset_suite = self.get_tabarena_v01()
-            
+            case "Tabarena-v0.1-Binary":
+                self.dataset_suite = self.get_tabarena_v01_Binary()
+
             case _:
                 raise NotImplementedError
 
@@ -72,7 +74,7 @@ class DatasetSuite:
         """
         for i in range(self.n_datasets):
             match self.suite_name:
-                case "Tabarena-v0.1":
+                case "Tabarena-v0.1" | "Tabarena-v0.1-Binary":
                     task_info = self.dataset_suite.iloc[i]
                     tid = int(task_info["tid"])
                     name = task_info["name"]
@@ -91,15 +93,23 @@ class DatasetSuite:
 
     def get_tabarena_v01(self):
         """
-        Collects the tasks (datasets) of the TabArena-v0.1 Suite
+        Collects the classification tasks (datasets) of the TabArena-v0.1 Suite
         """
         suite = openml.study.get_suite(457) #Study: TabArena-v0.1 Suite
         tasks = openml.tasks.list_tasks(task_id=suite.tasks, output_format="dataframe")
         class_tasks = tasks[tasks["task_type"] == "Supervised Classification"]
-        class_tasks = class_tasks[["tid", "name" ,  "target_feature"]]
+        class_tasks = class_tasks[["tid", "name","NumberOfClasses", "target_feature"]]
         class_tasks = class_tasks.reset_index(drop=True)
         self.n_datasets = len(class_tasks)
         return class_tasks
+    
+    def get_tabarena_v01_Binary(self):
+        """
+        Collects the binary classification tasks (datasets) of the TabArena-v0.1 Suite
+        """
+        tasks = self.get_tabarena_v01()
+        class_tasks = tasks[tasks["NumberOfClasses"] == 2]
+        return class_tasks        
 
 
 def get_openml_task(taskid):
