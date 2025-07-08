@@ -2,6 +2,7 @@ absl-py==2.3.1
 argon2-cffi==25.1.0
 argon2-cffi-bindings==21.2.0
 asttokens==3.0.0
+astunparse==1.6.3
 betacal==1.1.0
 calfram @ git+https://github.com/danielftg/CalFram.git@073cf7492c2147ab1a6c4a33c8118beb705b8a39
 catboost==1.2.8
@@ -17,10 +18,14 @@ deprecation==2.1.0
 einops==0.8.1
 executing==2.2.0
 filelock==3.18.0
+flatbuffers==25.2.10
 fonttools==4.58.5
 fpdf2==2.8.3
 fsspec==2025.5.1
+gast==0.6.0
+google-pasta==0.2.0
 graphviz==0.21
+grpcio==1.73.1
 h5py==3.14.0
 huggingface-hub==0.33.2
 idna==3.10
@@ -33,7 +38,9 @@ joblib==1.5.1
 keras==3.10.0
 kiwisolver==1.4.8
 liac-arff==2.5.0
+libclang==18.1.1
 lightgbm==4.6.0
+Markdown==3.8.2
 markdown-it-py==3.0.0
 MarkupSafe==3.0.2
 matplotlib==3.9.4
@@ -47,6 +54,7 @@ narwhals==1.46.0
 networkx==3.5
 numpy==1.26.4
 openml==0.15.1
+opt_einsum==3.4.0
 optree==0.16.0
 packaging==25.0
 pandas==2.2.2
@@ -56,6 +64,7 @@ pearsonify @ git+https://github.com/xRiskLab/pearsonify.git@b4d208b05f16dfd4dc33
 pillow==11.3.0
 plotly==6.2.0
 prompt_toolkit==3.0.51
+protobuf==5.29.5
 pure_eval==0.2.3
 pyarrow==20.0.0
 pycaleva==0.8.2
@@ -78,6 +87,10 @@ stack-data==0.6.3
 statsmodels==0.14.5
 sympy==1.14.0
 tabpfn==2.0.9
+tensorboard==2.19.0
+tensorboard-data-server==0.7.2
+tensorflow==2.19.0
+termcolor==3.1.0
 threadpoolctl==3.6.0
 torch==2.7.1
 tqdm==4.67.1
@@ -87,5 +100,8 @@ tzdata==2025.2
 urllib3==2.5.0
 venn-abers==1.4.6
 wcwidth==0.2.13
+Werkzeug==3.1.3
+wheel==0.45.1
+wrapt==1.17.2
 xgboost==3.0.2
 xmltodict==0.14.2

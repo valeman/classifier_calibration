@@ -1,16 +1,16 @@
  
+import components.config as cf 
+cf.logger.info("Importing resources")
 import components.data as data
 import components.eval_strat as e_s
 import components.architectures as archs
 import components.performance as perf
 import os 
-import logging 
 
-logging.basicConfig(level=logging.INFO)
 study_version = "v.1"
 
 if __name__ == "__main__":
-    logging.info("Starting experiment")
+    cf.logger.info("Starting experiment")
     suite = data.DatasetSuite(study_version)
     p_measures = perf.PerformanceMeasures(study_version)
     architectures = archs.ArchitectureSuite(study_version)
@@ -31,4 +31,4 @@ if __name__ == "__main__":
     # filename = os.path.join(output_dir, "test.txt")
     # with open(filename, "w") as f:
     #     f.write("FOOBAR")
-    # logging.info(f"Result written too: {filename}")'
+    # cf.logger.info(f"Result written too: {filename}")'

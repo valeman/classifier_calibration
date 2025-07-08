@@ -64,3 +64,4 @@ class ArchitectureSuite:
             yield architecture
     
     def init_v1(self):
+        pass
