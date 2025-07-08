@@ -10,10 +10,10 @@ logging.basicConfig(level=logging.INFO)
 study_version = "v.1"
 
 if __name__ == "__main__":
-    logging.info("Start experiment")
+    logging.info("Starting experiment")
     suite = data.DatasetSuite(study_version)
     p_measures = perf.PerformanceMeasures(study_version)
-    #architectures = archs.ArchitectureSuite(study_version)
+    architectures = archs.ArchitectureSuite(study_version)
     #results = {}
 
     for ds in suite:

@@ -13,7 +13,7 @@ class PerformanceMeasures:
         self.computational_cost = False
 
         match suite_name:
-            case "v1":
+            case "v.1":
                 self.computational_cost = True
                 self.init_v1()
             case _:
@@ -46,6 +46,8 @@ class PerformanceMeasures:
             Brier score, Spiegelhalter Z statistic, Log-loss, ECE frequency, ECI global, ECI balance,
             AUC-ROC, Accuracy, Recall ,Precision and F1 Score
 
+        ECE and ECI are binned with the automatic monotonic sweep method.
+        
         Y labels are in {0,1}
 
         x_test:pd.DataFrame
