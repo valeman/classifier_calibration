@@ -17,11 +17,12 @@ if __name__ == "__main__":
     #results = {}
 
     for ds in suite:
+        for architecture in architectures:
+            pass
+            break
+            eval = e_s.EvaluationStrategy(study_version, ds, architecture,  p_measures)
+            results[architecture.name] = eval.run()
         break
-        #for architecture in architectures:
-        #    eval = e_s.EvaluationStrategy(study_version, ds, architecture,  p_measures)
-        #    results[architecture.name] = eval.run()
-        
     
     ### Analyze and do things with the result
     ### Save results to disk 
