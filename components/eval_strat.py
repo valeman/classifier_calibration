@@ -1,7 +1,7 @@
-import config 
-import data
-import architectures as archs
-import performance as perf
+import components.config as config 
+import components.data as data
+import components.architectures as archs
+import components.performance as perf
 
 SEED = config.SEED
 

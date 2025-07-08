@@ -17,7 +17,7 @@ if platform.system() == "Windows":
 else:
     host_path = OUTPUT_DIR
 
-volume_arg = f"{host_path}:/results"
+volume_arg = f"{host_path}:/app/results"
 
 # Run the container
 subprocess.run([

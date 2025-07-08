@@ -1,4 +1,4 @@
-import config 
+import components.config as config 
 
 SEED = config.SEED
 

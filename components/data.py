@@ -1,4 +1,3 @@
-import config 
 import pandas as pd
 import openml
 
@@ -58,7 +57,7 @@ class DatasetSuite:
         match suite_name:
             case "Tabarena-v0.1":
                 self.dataset_suite = self.get_tabarena_v01()
-            case "Tabarena-v0.1-Binary":
+            case "v.1":
                 self.dataset_suite = self.get_tabarena_v01_Binary()
 
             case _:
@@ -75,7 +74,7 @@ class DatasetSuite:
         """
         for i in range(self.n_datasets):
             match self.suite_name:
-                case "Tabarena-v0.1" | "Tabarena-v0.1-Binary":
+                case "Tabarena-v0.1" | "v.1" :
                     task_info = self.dataset_suite.iloc[i]
                     tid = int(task_info["tid"])
                     name = task_info["name"]
