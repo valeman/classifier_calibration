@@ -20,21 +20,21 @@ class post_processing:
     def fit(self, y_in, y_out):
         raise NotImplementedError
     
-    def predict_proba(self, y):
+    def predict_prob(self, y):
         raise NotImplementedError
 
 
 class Model:
-    def __init__(self, learner, fit_fn, predict_proba_fn):
+    def __init__(self, learner, fit_fn, predict_prob_fn):
         self.learner = learner
         self._fit_fn = fit_fn
-        self._predict_proba_fn = predict_proba_fn
+        self._predict_prob_fn = predict_prob_fn
     
     def fit(self, x, y):
         return self._fit_fn(self.learner, x, y)
     
-    def predict_proba(self, x):
-        return self._predict_proba_fn(self.learner, x)
+    def predict_prob(self, x):
+        return self._predict_prob_fn(self.learner, x)
 
 
 class Architecture:
@@ -51,20 +51,20 @@ class Architecture:
 
         if self.post_processing:
             if self.calibration_set:
-                y_cal_proba = self.model.predict_proba(x_calibration)
-                self.post_processing.train(y_cal_proba, y_calibration)
+                y_cal_prob = self.model.predict_prob(x_calibration)
+                self.post_processing.train(y_cal_prob, y_calibration)
             else:
-                y_cal_proba = self.model.predict_proba(x_train)
-                self.post_processing.train(y_cal_proba, y_train)
+                y_cal_prob = self.model.predict_prob(x_train)
+                self.post_processing.train(y_cal_prob, y_train)
 
 
-    def predict_proba(self, x):
-        y_proba = self.model.predict(x)
+    def predict_prob(self, x):
+        y_prob = self.model.predict(x)
         
         if self.post_processing:
-            y_proba = self.post_processing.predict_proba(y_proba)
-        
-        return y_proba
+            y_prob = self.post_processing.predict_prob(y_prob)
+
+        return y_prob
 
 
 
@@ -89,11 +89,11 @@ class ArchitectureSuite:
     def init_v1(self):
         archs = []
         std_fit = lambda learner, x, y: learner.train(x, y)
-        std_predict_proba = lambda learner, x: learner.predict(x)
+        std_predict_prob = lambda learner, x: learner.predict(x)
 
-        cb = Model(learner=catboost.CatBoostClassifier()
+        cb = Model(learner=catboost.CatBoostClassifier(SEED=SEED)
                    ,fit_fn=std_fit
-                   ,predict_proba_fn=std_predict_proba 
+                   ,predict_prob_fn=std_predict_prob
         ) 
 
         archs.append(Architecture(name="catboost" ,model=cb))

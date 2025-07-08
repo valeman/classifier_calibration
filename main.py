@@ -14,14 +14,13 @@ if __name__ == "__main__":
     suite = data.DatasetSuite(study_version)
     p_measures = perf.PerformanceMeasures(study_version)
     architectures = archs.ArchitectureSuite(study_version)
-    #results = {}
+    results = {}
 
     for ds in suite:
         for architecture in architectures:
-            pass
-            break
             eval = e_s.EvaluationStrategy(study_version, ds, architecture,  p_measures)
             results[architecture.name] = eval.run()
+            break
         break
     
     ### Analyze and do things with the result
