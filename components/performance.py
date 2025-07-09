@@ -51,7 +51,7 @@ class PerformanceMeasures:
         Y labels are in {0,1}
 
         x_test:pd.DataFrame
-        y_....:np.ndarray | shape: (n, 1)
+        y_....:np.ndarray | shape: (n,)
         x_test is a pandas dataframe where the instances belong to the labels y_test.
         y_prob is the probability of class 1 in the intervall [0,1].
         y_pred is the predicted class, 0 or 1.
@@ -71,21 +71,15 @@ class PerformanceMeasures:
         self.measure_functions["recall"] = lambda     x_test, y_prob ,y_pred, y_test:   skm.recall_score(y_test, y_pred,pos_label=1, average='binary')
 
         def calfram_measures(measure_name, y_test, y_prob, y_pred):
-            #Convert shape: (n,) to shape (n,1)
-            #if y_test.ndim == 1:
-            #    y_test = y_test.reshape(-1, 1)
+            #Convert shape: (n,) to shape: (n, 2)
             if y_prob.ndim == 1:
                 y_prob = y_prob.reshape(-1, 1)
-            #if y_pred.ndim == 1:
-            #    y_pred = y_pred.reshape(-1, 1)
-            #Convert shape: (n, 1) to shape: (n, 2)
-            if y_prob.ndim == 2 and y_prob.shape[1] == 1:
                 y_prob = np.concatenate([1 - y_prob, y_prob], axis=1)
 
             caf = CalibrationFramework()
-            classes_scores = caf.select_probability(y_test # shape: (n, 1)
+            classes_scores = caf.select_probability(y_test # shape: (n,)
                                                     ,y_prob # shape: (n, c), where c is the number of classes 
-                                                    ,y_pred # shape: (n, 1)
+                                                    ,y_pred # shape: (n,)
             )
         
             measures, _ = caf.calibrationdiagnosis(classes_scores, adaptive=True #automatic monotonic sweep method
