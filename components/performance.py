@@ -64,7 +64,7 @@ class PerformanceMeasures:
         self.measure_functions["log_loss"] = lambda                   x_test, y_prob ,y_pred, y_test:  skm.log_loss(y_test, y_prob, normalize=True)
 
         self.measure_functions["auc_roc"] = lambda    x_test, y_prob ,y_pred, y_test:   ce(y_test, y_prob).auroc
-
+        
         self.measure_functions["accuracy"] = lambda   x_test, y_prob ,y_pred, y_test:   skm.accuracy_score(y_test, y_pred, normalize=True) 
         self.measure_functions["f1_score"] = lambda   x_test, y_prob ,y_pred, y_test:   skm.f1_score(y_test, y_pred, pos_label=1, average='binary')
         self.measure_functions["precision"] = lambda  x_test, y_prob ,y_pred, y_test:   skm.precision_score(y_test, y_pred, pos_label=1, average='binary')
@@ -96,3 +96,18 @@ class PerformanceMeasures:
         self.measure_functions["eci_global"] = lambda     x_test, y_prob ,y_pred, y_test: calfram_measures("eci_global", y_test, y_prob, y_pred)
         self.measure_functions["eci_balance"] = lambda    x_test, y_prob ,y_pred, y_test: calfram_measures("eci_balance", y_test, y_prob, y_pred)
         self.measure_functions["ece_freq"] = lambda       x_test, y_prob ,y_pred, y_test: calfram_measures("ece_freq", y_test, y_prob, y_pred)
+
+
+
+class AnalyzePerformance:
+    def __init__(self, study_ver ,results):
+        pass
+
+    def init_v1(self):
+        raise NotImplementedError
+
+    def run(self):
+        raise NotImplementedError
+
+    def save_to_disk(self,file_name):
+        raise NotImplementedError

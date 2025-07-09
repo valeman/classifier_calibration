@@ -30,3 +30,6 @@ class EvaluationStrategy:
             results.append(perf_measures)
             
         return results
+    
+    def init_v1(self):
+        raise NotImplementedError

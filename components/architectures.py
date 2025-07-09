@@ -13,7 +13,7 @@ import pearsonify
 
 SEED = config.SEED
 
-class post_processing:
+class PostProcessing:
     def __init__(self):
         raise NotImplementedError
     
@@ -25,11 +25,16 @@ class post_processing:
 
 
 class Model:
-    def __init__(self, learner, fit_fn, predict_prob_fn):
-        self.learner = learner
+    def __init__(self, learner_class,instatiator_fn, fit_fn, predict_prob_fn):
+        self.learner_class = learner_class
+        self.instatiator_fn = instatiator_fn
+        self.learner = None
         self._fit_fn = fit_fn
         self._predict_prob_fn = predict_prob_fn
     
+    def instantiate(self, meta_data:dict):
+        self.learner = self.learner_class(**self.instatiator_fn(meta_data))
+
     def fit(self, x, y):
         return self._fit_fn(self.learner, x, y)
     
@@ -38,17 +43,26 @@ class Model:
 
 
 class Architecture:
-    def __init__(self, name, model, calibration_set = False, post_processing=None):
+    def __init__(self
+                 ,name:str
+                 ,model:Model
+                 ,pre_trained_model=False
+                 ,calibration_set=False
+                 ,post_processing:PostProcessing=None
+        ):
         self.name = name
         self.model = model
+        self.pre_trained_model = pre_trained_model
 
         self.calibration_set = calibration_set
         self.post_processing = post_processing
         
-    def fit(self, x_train, y_train, x_calibration=None, y_calibration=None):
+        
+    def fit(self, meta_data, x_train, y_train, x_calibration=None, y_calibration=None):
+        
+        self.model.instantiate(meta_data)
         
         self.model.train(x_train, y_train)
-
         if self.post_processing:
             if self.calibration_set:
                 y_cal_prob = self.model.predict_prob(x_calibration)
@@ -59,14 +73,11 @@ class Architecture:
 
 
     def predict_prob(self, x):
-        y_prob = self.model.predict(x)
-        
+        y_prob = self.model.predict_prob(x)
         if self.post_processing:
             y_prob = self.post_processing.predict_prob(y_prob)
-
         return y_prob
-
-
+    
 
     def predict(self, x):
         raise NotImplementedError
@@ -90,12 +101,14 @@ class ArchitectureSuite:
         archs = []
         std_fit = lambda learner, x, y: learner.train(x, y)
         std_predict_prob = lambda learner, x: learner.predict(x)
-
-        cb = Model(learner=catboost.CatBoostClassifier(SEED=SEED)
+        
+        cb_instantiator = lambda meta_data: {"random_seed":SEED, "cat_features":meta_data["cat_features"]}
+        cb = Model(learner_class=catboost.CatBoostClassifier
+                   ,instatiator_fn=cb_instantiator
                    ,fit_fn=std_fit
                    ,predict_prob_fn=std_predict_prob
         ) 
-
         archs.append(Architecture(name="catboost" ,model=cb))
-        
+
+
         self.architectures = archs
