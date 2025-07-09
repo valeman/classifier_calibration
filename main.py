@@ -21,8 +21,6 @@ if __name__ == "__main__":
         ds.convert_to_pandas()
         ds.pre_process("encode_categoricals")
         for architecture in architectures:
-            pass
-            break
             eval = e_s.EvaluationStrategy(study_version, ds, architecture,  p_measures)
             
             if architecture.name not in results.keys():
