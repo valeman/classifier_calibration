@@ -35,13 +35,12 @@ if __name__ == "__main__":
         break
 
     analysis = perf.AnalyzePerformance(study_version, results)
-    analysis.run()
+    #analysis.run()
 
-    # output_dir = "results"
-    # output_dir = os.path.join(os.getcwd(), output_dir)
-    # os.makedirs(output_dir, exist_ok=True)
-    # filename = os.path.join(output_dir, "results.txt")
-    # analysis.save_to_disk(filename)
+    output_dir = "results"
+    output_dir = os.path.join(os.getcwd(), output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    analysis.save_to_disk(output_dir)
 
     ### Analyze and do things with the result
     ### Save results to disk 

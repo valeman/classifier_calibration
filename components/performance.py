@@ -1,3 +1,5 @@
+import json
+import os
 import components.config as config 
 import sklearn.metrics as skm 
 import pandas as pd
@@ -108,5 +110,7 @@ class AnalyzePerformance:
     def run(self):
         raise NotImplementedError
 
-    def save_to_disk(self,file_name):
-        raise NotImplementedError
+    def save_to_disk(self,output_dir):
+        filename = os.path.join(output_dir, "results.txt")
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(self.results, f, ensure_ascii=False, indent=2)
