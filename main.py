@@ -18,19 +18,24 @@ if __name__ == "__main__":
 
     results = {}
     for ds in ds_suite:
+        cf.logger.info(f"Dataset:{ds.df_name}")
+
         ds.convert_to_pandas()
         ds.pre_process("encode_categoricals")
+        
         for architecture in architectures:
+            cf.logger.info(f"Architecture:{architecture.name}")
             eval = e_s.EvaluationStrategy(study_version, ds, architecture,  p_measures)
             
             if architecture.name not in results.keys():
                 results[architecture.name] = {}
+            
+            cf.logger.info(f"Start evaluation")
             results[architecture.name][ds.df_name] = eval.run()
-            break
         break
 
-    # analysis = perf.AnalyzePerformance(study_version, results)
-    # analysis.run()
+    analysis = perf.AnalyzePerformance(study_version, results)
+    analysis.run()
 
     # output_dir = "results"
     # output_dir = os.path.join(os.getcwd(), output_dir)

@@ -1,13 +1,14 @@
-import components.config as config 
+import components.config as cf 
 import components.data as data
 import components.architectures as archs
 import components.performance as perf
 from typing import Generator
 import pandas as pd
+import numpy as np
 from sklearn.model_selection import StratifiedKFold
 
 
-SEED = config.SEED
+SEED = cf.SEED
 
 class EvaluationStrategy:
     def __init__(self, strategy:str, ds:data.Dataset, arch:archs.Architecture,  p_measures:perf.PerformanceMeasures):
@@ -23,18 +24,18 @@ class EvaluationStrategy:
 
     def run(self) -> list[dict]:
         results = []
-        for x_train, y_train, x_cal, y_cal, x_test, y_test in self.gen_sets:
-            
-            self.arch.train(x_train, y_train, x_cal, y_cal)
+        for x_train, y_train, x_cal, y_cal, x_test, y_test in self.gen_sets():
+            pass
+            self.arch.fit(self.ds.meta_data, x_train, y_train, x_cal, y_cal)
             y_prob= self.arch.predict_prob(x_test)
-            y_pred = self.arch.predict(x_test)
+            y_pred = self.arch.predict(y_prob=y_prob)
 
-            perf_measures = self.p_measures.calc_perf(x_test, y_prob ,y_pred, y_test)
+            perf_measures = self.p_measures.calc_perf(x_test, y_prob ,y_pred,np.asarray(y_test))
             results.append(perf_measures)
             
         return results
     
-    def init_v1(self, ds:data.Dataset, arch:archs.Architecture)-> Generator[tuple[pd.DataFrame]]:
+    def init_v1(self, ds:data.Dataset, arch:archs.Architecture)-> Generator[tuple[pd.DataFrame],None,None]:
         """
         Nested 5-fold cross validation, with 5 outer folds and 5 inner folds.  
         Outer heldout fold is test set, inner heldout fold is calibration set. 

@@ -1,4 +1,5 @@
-import components.config as config 
+import components.config as cf
+import numpy as np 
 import sklearn 
 import xgboost
 import catboost
@@ -11,7 +12,7 @@ import pearsonify
 
 
 
-SEED = config.SEED
+SEED = cf.SEED
 
 class PreProcessing:
     def __init__(self):
@@ -40,6 +41,7 @@ class Model:
         self._predict_prob_fn = predict_prob_fn
     
     def instantiate(self, meta_data:dict):
+        cf.logger.info(f"Model instantiated with:{self.instatiator_fn(meta_data)}")
         self.learner = self.learner_class(**self.instatiator_fn(meta_data))
 
     def fit(self, x, y):
@@ -69,7 +71,8 @@ class Architecture:
         
         self.model.instantiate(meta_data)
         
-        self.model.train(x_train, y_train)
+        self.model.fit(x_train, y_train)
+
         if self.post_processing:
             if self.calibration_set:
                 y_cal_prob = self.model.predict_prob(x_calibration)
@@ -81,13 +84,30 @@ class Architecture:
 
     def predict_prob(self, x):
         y_prob = self.model.predict_prob(x)
+        y_prob = np.asarray(y_prob)
+
+        if y_prob.ndim == 2 and y_prob.shape[1] == 2:
+            y_prob =  y_prob[:, 1]
+    
         if self.post_processing:
             y_prob = self.post_processing.predict_prob(y_prob)
+
         return y_prob
     
 
-    def predict(self, x):
-        raise NotImplementedError
+    def predict(self, x=None, y_prob=None):
+        if x:
+            y_prob = self.predict_prob(x)
+        
+        if y_prob.ndim == 1:
+            return np.where(y_prob >= 0.5, 1, 0)
+        else:
+            return np.argmax(y_prob, axis=1) + 1
+
+        
+
+        
+     
 
 
 class ArchitectureSuite:
@@ -106,8 +126,8 @@ class ArchitectureSuite:
 
     def init_v1(self):
         archs = []
-        std_fit = lambda learner, x, y: learner.train(x, y)
-        std_predict_prob = lambda learner, x: learner.predict(x)
+        std_fit = lambda learner, x, y: learner.fit(x, y)
+        std_predict_prob = lambda learner, x: learner.predict_proba(x)
         
         cb_instantiator = lambda meta_data: {"random_seed":SEED, "cat_features":meta_data["cat_features"]}
         cb = Model(learner_class=catboost.CatBoostClassifier
