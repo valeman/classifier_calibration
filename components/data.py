@@ -14,9 +14,40 @@ def get_openml_task(taskid:int)-> tuple[pd.DataFrame,list]:
     """
     task = openml.tasks.get_task(taskid)
     ds = task.get_dataset()
-    df, _, cat_features, at_names =  ds.get_data()
+    df, _, cat_features, _ =  ds.get_data()
     cat_columns = [i for i,j in zip(df.columns, cat_features) if j]
     return df, cat_columns  
+
+
+def encode_categoricals(df: pd.DataFrame, cat_cols: list[str]) -> tuple[pd.DataFrame, dict[str, dict]]:
+    """ 
+    Encode each column in cat_cols of df to positive integers.
+    - if a column has exactly 2 uniques, maps to {v0: 0, v1: 1}
+    - otherwise maps sorted unique values to 1,2,3,...
+
+    Args:
+        df (pd.DataFrame): The df to encode
+        cat_cols (list[str]): A list of categorical columns to encode
+
+    Returns:
+        tuple[pd.DataFrame, dict[str, dict]]: : the encoded df and the mapping
+    """
+    df_encoded = df.copy()
+    mappings = {}
+
+    for col in cat_cols:
+        uniques = sorted(df_encoded[col].dropna().unique())
+        if len(uniques) == 2:
+            codes = [0, 1]
+        else:
+            codes = list(range(1, len(uniques) + 1))
+
+        m = {val: code for val, code in zip(uniques, codes)}
+        mappings[col] = m
+
+        df_encoded[col] = df_encoded[col].map(m)
+
+    return df_encoded, mappings
 
 
 class Dataset:
@@ -36,9 +67,9 @@ class Dataset:
         self.df_name = df_name
         self.meta_data = meta_data
         
-    def pre_process(method:str) -> None:
+    def pre_process(self,method:str) -> None:
         """
-        Apply a transformation on self.df. 
+        Apply a transformation on self.df
         Should only support trivial transformations such as encodig text columns into numeric.
         Pre processing in general should lie under architectures.
         Args:
@@ -46,10 +77,13 @@ class Dataset:
 
         """
         match method:
-            case "to_numeric":
-                pass
+            case "encode_categoricals":
+                cat_cols = self.meta_data["cat_columns"]
+                self.df, e_map = encode_categoricals(self.df, cat_cols)
+                self.meta_data["encoding_map"] = e_map
             case _:
                 raise NotImplementedError
+
 
     def to_pandas(self) -> pd.DataFrame:
         """
@@ -64,7 +98,14 @@ class Dataset:
         else:
             raise NotImplementedError
         
-        
+    def convert_to_pandas(self) -> None:
+        """
+        Convert self.df to a pandas dataframe.
+
+        Returns:
+            pd.DataFrame
+        """
+        self.df = self.to_pandas()    
 
 class DatasetSuite:
     """
@@ -106,12 +147,14 @@ class DatasetSuite:
                     name = task_info["name"]
                     target = task_info["target_feature"]
                     df, cat_columns = get_openml_task(tid)
-                    cat_columns.remove(target)
+                    cat_features = cat_columns.copy()
+                    cat_features.remove(target)
                     dataset = Dataset(df = df
                                     ,df_name = name
                                     ,meta_data = {"source":"openml"
                                                   ,"target":target
-                                                  ,"cat_features":cat_columns
+                                                  ,"cat_columns":cat_columns
+                                                  ,"cat_features":cat_features
                                                 }
                     )
                 case _:

@@ -12,12 +12,14 @@ study_version = "v.1"
 if __name__ == "__main__":
     cf.logger.info("Starting experiment")
     
-    suite = data.DatasetSuite(study_version)
+    ds_suite = data.DatasetSuite(study_version)
     p_measures = perf.PerformanceMeasures(study_version)
     architectures = archs.ArchitectureSuite(study_version)
 
     results = {}
-    for ds in suite:
+    for ds in ds_suite:
+        ds.convert_to_pandas()
+        ds.pre_process("encode_categoricals")
         for architecture in architectures:
             pass
             break

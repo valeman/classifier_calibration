@@ -13,6 +13,13 @@ import pearsonify
 
 SEED = config.SEED
 
+class PreProcessing:
+    def __init__(self):
+        raise NotImplementedError
+    
+    def apply(self, x):
+        raise NotImplementedError
+
 class PostProcessing:
     def __init__(self):
         raise NotImplementedError
@@ -57,7 +64,7 @@ class Architecture:
         self.calibration_set = calibration_set
         self.post_processing = post_processing
         
-        
+
     def fit(self, meta_data, x_train, y_train, x_calibration=None, y_calibration=None):
         
         self.model.instantiate(meta_data)
