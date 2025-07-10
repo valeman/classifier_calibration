@@ -129,7 +129,7 @@ class ArchitectureSuite:
         std_fit = lambda learner, x, y: learner.fit(x, y)
         std_predict_prob = lambda learner, x: learner.predict_proba(x)
         
-        cb_instantiator = lambda meta_data: {"random_seed":SEED, "cat_features":meta_data["cat_features"]}
+        cb_instantiator = lambda meta_data: {"random_seed":SEED, "verbose":False, "cat_features":meta_data["cat_features"]}
         cb = Model(learner_class=catboost.CatBoostClassifier
                    ,instatiator_fn=cb_instantiator
                    ,fit_fn=std_fit
