@@ -1,16 +1,15 @@
 import components.config as cf
 import numpy as np 
-from sklearn.linear_model import LogisticRegression
-from sklearn.isotonic import IsotonicRegression
 import xgboost
 import catboost
 import lightgbm
 import keras
 import tabpfn
-from betacal import BetaCalibration
-import venn_abers
 import pearsonify
-
+from sklearn.linear_model import LogisticRegression
+from sklearn.isotonic import IsotonicRegression
+from betacal import BetaCalibration
+from venn_abers import VennAbersCalibrator
 
 
 SEED = cf.SEED
@@ -163,25 +162,55 @@ class ArchitectureSuite:
             ,instatiator_fn = lr_instantiator
             ,fit_fn = pp_std_fit
             ,predict_prob_fn = pp_std_predict_prob
-            )
+        )
         
         ir_instantiator = lambda meta_data: {"out_of_bounds":"clip"}
         isotonic_regression = PostProcessing(
             learner_class = IsotonicRegression
-            ,instatiator_fn = lr_instantiator
+            ,instatiator_fn = ir_instantiator
             ,fit_fn = pp_std_fit
             ,predict_prob_fn = pp_std_predict
-            )
+        )
+        
+        bc_instantiator = lambda meta_data: {"parameters":"abm"}
+        beta_calibration = PostProcessing(
+            learner_class = BetaCalibration
+            ,instatiator_fn = bc_instantiator
+            ,fit_fn = pp_std_fit
+            ,predict_prob_fn = pp_std_predict
+        )
         
 
+        va_instantiator = lambda meta_data: {}
+        class pp_va_fns:
+            def __init__(self):
+                self.y_in = None
+                self.y_ta = None
+            def fit(self,learner,y_in,y_ta):
+                self.y_in = y_in
+                self.y_ta = y_ta
+            def predict_proba(self,learner,y):
+                return learner.predict_proba(p_cal=self.y_in, y_cal=self.y_ta, p_test=y) 
+        pp_va_fn = pp_va_fns()
+        #Referred to as manual Venn-ABERS calibration in the docs
+        venn_abers_calibration = PostProcessing(
+            learner_class = VennAbersCalibrator
+            ,instatiator_fn = va_instantiator
+            ,fit_fn = pp_va_fn.fit
+            ,predict_prob_fn = pp_va_fn.predict_proba
+        )
+        
+        
 
         archs.append(Architecture(name="catboost" ,model=cb))
+        
         archs.append(Architecture(
                  name="catboost.platt_scaling"
                  ,model=cb
                  ,calibration_set=True
                  ,post_processing=platt_scaling
         ))
+
         archs.append(Architecture(
                  name="catboost.isotonic_regression"
                  ,model=cb
@@ -189,5 +218,19 @@ class ArchitectureSuite:
                  ,post_processing=isotonic_regression
         ))
 
+        archs.append(Architecture(
+                 name="catboost.beta_calibration"
+                 ,model=cb
+                 ,calibration_set=True
+                 ,post_processing=beta_calibration
+        ))
         
+        archs.append(Architecture(
+                 name="catboost.venn_abers_calibration"
+                 ,model=cb
+                 ,calibration_set=True
+                 ,post_processing=venn_abers_calibration
+        ))
+
+      
         self.architectures = archs
