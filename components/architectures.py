@@ -5,14 +5,30 @@ import catboost
 import lightgbm
 import keras
 import tabpfn
-import pearsonify
 from sklearn.linear_model import LogisticRegression
 from sklearn.isotonic import IsotonicRegression
 from betacal import BetaCalibration
 from venn_abers import VennAbersCalibrator
-
+import pearsonify as pear
 
 SEED = cf.SEED
+
+class Pearsonify:
+    def __init__(self, alpha = 0.05):
+        self.alpha = alpha
+        self.q_alpha = None
+        
+    def fit(self,y_instance, y_target):
+        residuals = pear.utils.compute_pearson_residuals(y_target, y_instance)
+        self.q_alpha = np.quantile(np.abs(residuals), 1 - self.alpha)
+        
+    def predict_proba(self, y):
+        lower_bounds, upper_bounds = pear.utils.compute_confidence_intervals(
+            y, self.q_alpha
+        )
+        y_prob = upper_bounds / (1 - lower_bounds + upper_bounds)
+        return y_prob
+
 
 class PreProcessing:
     def __init__(self):
@@ -152,6 +168,7 @@ class ArchitectureSuite:
                    ,predict_prob_fn=md_std_predict_prob
         ) 
 
+
         pp_std_fit = lambda learner, y_in, y_ta: learner.fit(y_in, y_ta)
         pp_std_predict_prob = lambda learner, y: learner.predict_proba(y)
         pp_std_predict = lambda learner, y: learner.predict(y)
@@ -180,8 +197,6 @@ class ArchitectureSuite:
             ,predict_prob_fn = pp_std_predict
         )
         
-
-        va_instantiator = lambda meta_data: {}
         class pp_va_fns:
             def __init__(self):
                 self.y_in = None
@@ -191,6 +206,8 @@ class ArchitectureSuite:
                 self.y_ta = y_ta
             def predict_proba(self,learner,y):
                 return learner.predict_proba(p_cal=self.y_in, y_cal=self.y_ta, p_test=y) 
+        
+        va_instantiator = lambda meta_data: {}    
         pp_va_fn = pp_va_fns()
         #Referred to as manual Venn-ABERS calibration in the docs
         venn_abers_calibration = PostProcessing(
@@ -200,10 +217,16 @@ class ArchitectureSuite:
             ,predict_prob_fn = pp_va_fn.predict_proba
         )
         
+        pe_instantiator = lambda meta_data: {"alpha":0.05}
+        pearsonify = PostProcessing(
+            learner_class = Pearsonify
+            ,instatiator_fn = pe_instantiator
+            ,fit_fn = pp_std_fit
+            ,predict_prob_fn = pp_std_predict_prob
+        )
         
-
         archs.append(Architecture(name="catboost" ,model=cb))
-        
+
         archs.append(Architecture(
                  name="catboost.platt_scaling"
                  ,model=cb
@@ -232,5 +255,11 @@ class ArchitectureSuite:
                  ,post_processing=venn_abers_calibration
         ))
 
-      
+        archs.append(Architecture(
+                 name="catboost.pearsonify"
+                 ,model=cb
+                 ,calibration_set=True
+                 ,post_processing=pearsonify
+        ))
+
         self.architectures = archs
