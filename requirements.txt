@@ -65,6 +65,7 @@ pillow==11.3.0
 plotly==6.2.0
 prompt_toolkit==3.0.51
 protobuf==5.29.5
+psutil==7.0.0
 pure_eval==0.2.3
 pyarrow==20.0.0
 pycaleva==0.8.2
@@ -89,7 +90,7 @@ sympy==1.14.0
 tabpfn==2.0.9
 tensorboard==2.19.0
 tensorboard-data-server==0.7.2
-tensorflow-cpu==2.19.0
+tensorflow_cpu==2.19.0
 termcolor==3.1.0
 threadpoolctl==3.6.0
 torch==2.7.1
