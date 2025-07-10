@@ -39,7 +39,7 @@ if __name__ == "__main__":
             cf.logger.info(f"Start evaluation")
             eval = e_s.EvaluationStrategy(study_version, ds, architecture,  p_measures)  
             results[architecture.name][ds.df_name] = eval.run()
-        
+        break
 
     analysis = perf.AnalyzePerformance(study_version, results)
     #analysis.run()

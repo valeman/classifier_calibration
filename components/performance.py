@@ -12,11 +12,9 @@ class PerformanceMeasures:
         
         self.suite_name = suite_name
         self.measure_functions = {}
-        self.computational_cost = False
 
         match suite_name:
             case "v.1":
-                self.computational_cost = True
                 self.init_v1()
             case _:
                 raise NotImplementedError

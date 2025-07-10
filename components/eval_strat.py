@@ -1,14 +1,22 @@
+import time
+import tracemalloc
+import psutil
+import gc
+import os
 import components.config as cf 
 import components.data as data
 import components.architectures as archs
 import components.performance as perf
-from typing import Generator
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import StratifiedKFold
-
+from typing import Generator
 
 SEED = cf.SEED
+
+def get_mem_mb():
+    return psutil.Process(os.getpid()).memory_info().rss / 1e6  # in MB
+
 
 class EvaluationStrategy:
     def __init__(self, strategy:str, ds:data.Dataset, arch:archs.Architecture,  p_measures:perf.PerformanceMeasures):
@@ -24,13 +32,54 @@ class EvaluationStrategy:
 
     def run(self) -> list[dict]:
         results = []
+        process = psutil.Process()
         for x_train, y_train, x_cal, y_cal, x_test, y_test in self.gen_sets():
-            pass
+            
+            gc.collect()
+            ram_pre_arch = get_mem_mb() 
+            tracemalloc.start()
+            cpu_fit_start = process.cpu_times()
+            start_fit = time.perf_counter()
+
             self.arch.fit(self.ds.meta_data, x_train, y_train, x_cal, y_cal)
+            
+            end_fit = time.perf_counter()
+            cpu_fit_end = process.cpu_times()
+            _, peak_ram_fit = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+            ram_post_arch = get_mem_mb()
+            
+            gc.collect()
+            tracemalloc.start()
+            cpu_pre_start = process.cpu_times()
+            start_pre = time.perf_counter()
+
             y_prob= self.arch.predict_prob(x_test)
+
+            end_pre = time.perf_counter()
+            cpu_pre_end = process.cpu_times()
+            _, peak_ram_pre = tracemalloc.get_traced_memory()
+            tracemalloc.stop()
+        
             y_pred = self.arch.predict(y_prob=y_prob)
 
             perf_measures = self.p_measures.calc_perf(x_test, y_prob ,y_pred,np.asarray(y_test))
+
+            perf_measures["wall_time_fit_sec"] = end_fit - start_fit
+            perf_measures["wall_time_predict_sec"] = end_pre - start_pre
+            perf_measures['cpu_time_user_fit_sec'] = cpu_fit_end.user - cpu_fit_start.user
+            perf_measures['cpu_time_system_fit_sec'] = cpu_fit_end.system - cpu_fit_start.system
+            perf_measures['cpu_time_user_predict_sec'] = cpu_pre_end.user - cpu_pre_start.user
+            perf_measures['cpu_time_system_predict_sec'] = cpu_pre_end.system - cpu_pre_start.system
+      
+            perf_measures["peak_ram_fit_mb"] = peak_ram_fit  / 1e6
+            perf_measures["peak_ram_predict_mb"] = peak_ram_pre / 1e6
+            perf_measures["total_ram_architecture_mb"] = ram_post_arch - ram_pre_arch
+            
+            perf_measures["n_train"] = len(x_train)
+            perf_measures["n_cal"] = 0 if x_cal is None else len(x_cal)
+            perf_measures["n_test"]= len(x_test)
+
             results.append(perf_measures)
             
         return results
