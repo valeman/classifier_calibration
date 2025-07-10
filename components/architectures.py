@@ -19,6 +19,7 @@ class Pearsonify:
         self.q_alpha = None
         
     def fit(self,y_instance, y_target):
+        y_target = np.asarray(y_target)
         residuals = pear.utils.compute_pearson_residuals(y_target, y_instance)
         self.q_alpha = np.quantile(np.abs(residuals), 1 - self.alpha)
         
@@ -27,7 +28,7 @@ class Pearsonify:
             y, self.q_alpha
         )
         y_prob = upper_bounds / (1 - lower_bounds + upper_bounds)
-        return y_prob
+        return y_prob.reshape(-1,)
 
 
 class PreProcessing:
@@ -202,9 +203,13 @@ class ArchitectureSuite:
                 self.y_in = None
                 self.y_ta = None
             def fit(self,learner,y_in,y_ta):
+                y_in = y_in.reshape(-1, 1)
+                y_in = np.concatenate([1 - y_in, y_in], axis=1)
                 self.y_in = y_in
-                self.y_ta = y_ta
+                self.y_ta = np.asarray(y_ta)
             def predict_proba(self,learner,y):
+                y = y.reshape(-1, 1)
+                y = np.concatenate([1 - y, y], axis=1)
                 return learner.predict_proba(p_cal=self.y_in, y_cal=self.y_ta, p_test=y) 
         
         va_instantiator = lambda meta_data: {}    
