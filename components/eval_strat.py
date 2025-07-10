@@ -112,7 +112,7 @@ class EvaluationStrategy:
         
         def gen_sets():
             # Outer stratified split
-            outer_cv = StratifiedKFold(n_splits=2, shuffle=True, random_state=SEED)
+            outer_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
             for train_idx, test_idx in outer_cv.split(X, y):
                 X_train = X.iloc[train_idx].reset_index(drop=True)
                 y_train = y.iloc[train_idx].reset_index(drop=True)
@@ -121,7 +121,7 @@ class EvaluationStrategy:
 
                 # If calibration set requested, perform inner stratified split
                 if arch.calibration_set:
-                    inner_cv = StratifiedKFold(n_splits=2, shuffle=True, random_state=SEED)
+                    inner_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
                     for inner_train_idx, cal_idx in inner_cv.split(X_train, y_train):
                         X_in_train = X_train.iloc[inner_train_idx].reset_index(drop=True)
                         y_in_train = y_train.iloc[inner_train_idx].reset_index(drop=True)
