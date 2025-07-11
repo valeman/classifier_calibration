@@ -1,5 +1,8 @@
 results
 catboost_info
+lightning_logs
+saved_models
+.pt_tmp
 # Created by https://www.toptal.com/developers/gitignore/api/python,windows,macos,linux
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,windows,macos,linux
 

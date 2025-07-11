@@ -1,10 +1,13 @@
 import components.config as cf
 import numpy as np 
-
+import pandas as pd
+import os
 from xgboost import XGBClassifier
 import catboost
 from lightgbm import LGBMClassifier
-import pytorch_widedeep
+from pytorch_tabular import TabularModel
+from pytorch_tabular.models import TabTransformerConfig
+from pytorch_tabular.config import DataConfig, TrainerConfig, OptimizerConfig
 from tabpfn import TabPFNClassifier 
 from sklearn.linear_model import LogisticRegression
 from sklearn.isotonic import IsotonicRegression
@@ -17,6 +20,44 @@ from venn_abers import VennAbersCalibrator
 import pearsonify as pear
 
 SEED = cf.SEED
+os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1") #Unsafe don't do this in prod.
+
+class TabTransformer:
+    def __init__(self, random_state, continuous_cols, categorical_cols):
+        self.random_state = random_state
+        model_config = TabTransformerConfig(
+            task="classification"        
+            ,seed=random_state
+        )
+        data_config = DataConfig(
+            target=["target"],
+            continuous_cols=continuous_cols,
+            categorical_cols=categorical_cols,
+        )
+        trainer_config = TrainerConfig(
+            auto_lr_find=True,
+            batch_size=1024,
+            max_epochs=1,
+        )
+        optimizer_config = OptimizerConfig()
+        
+        self.tabular_model = TabularModel(
+            data_config=data_config
+            ,model_config=model_config
+            ,optimizer_config=optimizer_config
+            ,trainer_config=trainer_config
+        )
+    
+    def fit(self,x,y):
+        df = pd.concat([x, y.rename("target")], axis=1)
+        df[df.columns] = df[df.columns].astype("object")
+        self.tabular_model.fit(train=df, seed=self.random_state)
+    
+    def predict_proba(self,x):
+        x[x.columns] = x[x.columns].astype("object")
+        preds = self.tabular_model.predict(x)
+        preds = np.asarray(preds["target_1_probability"]).reshape(-1,)
+        return preds
 
 class Pearsonify:
     def __init__(self, alpha = 0.05):
@@ -34,8 +75,8 @@ class Pearsonify:
         )
         y_prob = upper_bounds / (1 - lower_bounds + upper_bounds)
         return y_prob.reshape(-1,)
-    
-    
+
+
 class PreProcessing:
     def __init__(self):
         raise NotImplementedError
@@ -226,6 +267,15 @@ class ArchitectureSuite:
                    ,predict_prob_fn=md_std_predict_prob
         ) 
 
+        ttra_instantiator = lambda meta_data: {"random_state":SEED, "continuous_cols":meta_data["non_cat_features"]
+                                     , "categorical_cols":meta_data["cat_features"]}
+        ttra = Model(learner_class=TabTransformer
+                   ,instatiator_fn=ttra_instantiator
+                   ,fit_fn=md_std_fit
+                   ,predict_prob_fn=md_std_predict_prob
+        ) 
+
+
         tpfn_instantiator = lambda meta_data: {"random_state":SEED, "ignore_pretraining_limits":True, "memory_saving_mode":True, "fit_mode":"low_memory"}
         tpfn = Model(learner_class=TabPFNClassifier
                    ,instatiator_fn=tpfn_instantiator
@@ -292,17 +342,19 @@ class ArchitectureSuite:
             ,fit_fn = pp_std_fit
             ,predict_prob_fn = pp_std_predict_prob
         )
-        
-        #archs.append(Architecture(name="catboost" ,model=cb))
-        #archs.append(Architecture(name="random_forest" ,model=rf))
-        #archs.append(Architecture(name="xgboost" ,model=xgb))
-        #archs.append(Architecture(name="lightgbm" ,model=lgbm))
+        #archs.append(Architecture(name="svm" ,model=svm))
         #archs.append(Architecture(name="logistic_regression" ,model=lr))
         #archs.append(Architecture(name="k_nn" ,model=knn))
-        archs.append(Architecture(name="svm" ,model=svm))
-        #archs.append(Architecture(name="mlp" ,model=mlp))
+        
+        #archs.append(Architecture(name="random_forest" ,model=rf))
+        #archs.append(Architecture(name="catboost" ,model=cb))
+        #archs.append(Architecture(name="xgboost" ,model=xgb))
+        #archs.append(Architecture(name="lightgbm" ,model=lgbm))
+        
+        archs.append(Architecture(name="tabTransformer" ,model=ttra))
         #archs.append(Architecture(name="tabpfn" ,model=tpfn))
-       
+        #archs.append(Architecture(name="mlp" ,model=mlp))
+        
 
         # archs.append(Architecture(
         #          name="catboost.platt_scaling"

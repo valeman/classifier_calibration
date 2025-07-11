@@ -136,7 +136,8 @@ class Dataset:
                 self.meta_data["detected_cat_cols"] = detected_cat_cols
                 self.meta_data["cat_columns"].extend(detected_cat_cols)
                 self.meta_data["cat_features"].extend(detected_cat_cols)
-
+                self.meta_data["non_cat_features"] =  self.non_cat_columns
+                
             case "encode_categoricals":
                 cat_cols = self.meta_data["cat_columns"]
                 self.df, e_map = encode_categoricals(self.df, cat_cols)
