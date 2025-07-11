@@ -4,7 +4,7 @@ import numpy as np
 from xgboost import XGBClassifier
 import catboost
 from lightgbm import LGBMClassifier
-import keras
+import pytorch_widedeep
 from tabpfn import TabPFNClassifier 
 from sklearn.linear_model import LogisticRegression
 from sklearn.isotonic import IsotonicRegression
@@ -34,8 +34,8 @@ class Pearsonify:
         )
         y_prob = upper_bounds / (1 - lower_bounds + upper_bounds)
         return y_prob.reshape(-1,)
-
-
+    
+    
 class PreProcessing:
     def __init__(self):
         raise NotImplementedError
@@ -210,13 +210,13 @@ class ArchitectureSuite:
                    ,fit_fn=md_std_fit
                    ,predict_prob_fn=md_std_predict_prob
         ) 
-
-        # svm_instantiator = lambda meta_data: {"probability":True, "random_state":SEED}
-        # svm = Model(learner_class=SVC
-        #            ,instatiator_fn=svm_instantiator
-        #            ,fit_fn=md_std_fit
-        #            ,predict_prob_fn=md_std_predict_prob
-        # ) 
+        
+        svm_instantiator = lambda meta_data: {"probability":True, "random_state":SEED}
+        svm = Model(learner_class=SVC
+                   ,instatiator_fn=svm_instantiator
+                   ,fit_fn=md_std_fit
+                   ,predict_prob_fn=md_std_predict_prob
+        ) 
 
         
         mlp_instantiator = lambda meta_data: {"random_state":SEED}
@@ -299,6 +299,7 @@ class ArchitectureSuite:
         #archs.append(Architecture(name="lightgbm" ,model=lgbm))
         #archs.append(Architecture(name="logistic_regression" ,model=lr))
         #archs.append(Architecture(name="k_nn" ,model=knn))
+        archs.append(Architecture(name="svm" ,model=svm))
         #archs.append(Architecture(name="mlp" ,model=mlp))
         #archs.append(Architecture(name="tabpfn" ,model=tpfn))
        
