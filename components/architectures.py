@@ -1,12 +1,17 @@
 import components.config as cf
 import numpy as np 
-import xgboost
+
+from xgboost import XGBClassifier
 import catboost
-import lightgbm
+from lightgbm import LGBMClassifier
 import keras
-import tabpfn
+from tabpfn import TabPFNClassifier 
 from sklearn.linear_model import LogisticRegression
 from sklearn.isotonic import IsotonicRegression
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier
 from betacal import BetaCalibration
 from venn_abers import VennAbersCalibrator
 import pearsonify as pear
@@ -168,13 +173,71 @@ class ArchitectureSuite:
                    ,fit_fn=md_std_fit
                    ,predict_prob_fn=md_std_predict_prob
         ) 
+        
+        rf_instantiator = lambda meta_data: {"random_state":SEED}
+        rf = Model(learner_class=RandomForestClassifier
+                   ,instatiator_fn=rf_instantiator
+                   ,fit_fn=md_std_fit
+                   ,predict_prob_fn=md_std_predict_prob
+        ) 
 
+        
+        xgb_instantiator = lambda meta_data: {"random_state":SEED}
+        xgb = Model(learner_class=XGBClassifier
+                   ,instatiator_fn=xgb_instantiator
+                   ,fit_fn=md_std_fit
+                   ,predict_prob_fn=md_std_predict_prob
+        ) 
+              
+        lgbm_instantiator = lambda meta_data: {"random_state":SEED}
+        lgbm = Model(learner_class=LGBMClassifier
+                   ,instatiator_fn=lgbm_instantiator
+                   ,fit_fn=md_std_fit
+                   ,predict_prob_fn=md_std_predict_prob
+        ) 
+
+        lr_instantiator = lambda meta_data: {"random_state":SEED}
+        lr = Model(learner_class=LogisticRegression
+                   ,instatiator_fn=lr_instantiator
+                   ,fit_fn=md_std_fit
+                   ,predict_prob_fn=md_std_predict_prob
+        ) 
+
+        
+        knn_instantiator = lambda meta_data: {}
+        knn = Model(learner_class=KNeighborsClassifier
+                   ,instatiator_fn=knn_instantiator
+                   ,fit_fn=md_std_fit
+                   ,predict_prob_fn=md_std_predict_prob
+        ) 
+
+        # svm_instantiator = lambda meta_data: {"probability":True, "random_state":SEED}
+        # svm = Model(learner_class=SVC
+        #            ,instatiator_fn=svm_instantiator
+        #            ,fit_fn=md_std_fit
+        #            ,predict_prob_fn=md_std_predict_prob
+        # ) 
+
+        
+        mlp_instantiator = lambda meta_data: {"random_state":SEED}
+        mlp = Model(learner_class=MLPClassifier
+                   ,instatiator_fn=mlp_instantiator
+                   ,fit_fn=md_std_fit
+                   ,predict_prob_fn=md_std_predict_prob
+        ) 
+
+        tpfn_instantiator = lambda meta_data: {"random_state":SEED}
+        tpfn = Model(learner_class=TabPFNClassifier
+                   ,instatiator_fn=tpfn_instantiator
+                   ,fit_fn=md_std_fit
+                   ,predict_prob_fn=md_std_predict_prob
+        ) 
+        
 
         pp_std_fit = lambda learner, y_in, y_ta: learner.fit(y_in, y_ta)
         pp_std_predict_prob = lambda learner, y: learner.predict_proba(y)
         pp_std_predict = lambda learner, y: learner.predict(y)
         
-        lr_instantiator = lambda meta_data: {"random_state":SEED}
         platt_scaling = PostProcessing(
             learner_class = LogisticRegression
             ,instatiator_fn = lr_instantiator
