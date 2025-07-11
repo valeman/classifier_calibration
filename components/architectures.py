@@ -342,53 +342,37 @@ class ArchitectureSuite:
             ,fit_fn = pp_std_fit
             ,predict_prob_fn = pp_std_predict_prob
         )
-        #archs.append(Architecture(name="svm" ,model=svm))
-        #archs.append(Architecture(name="logistic_regression" ,model=lr))
-        #archs.append(Architecture(name="k_nn" ,model=knn))
+        models = {
+            "svm": svm,
+            "lr": lr,
+            "knn": knn,
+            "rf": rf,
+            "cb": cb,
+            "xgb": xgb,
+            "lgbm": lgbm,
+            "ttra": ttra,
+            "tpfn": tpfn,
+            "mlp": mlp
+        }
+        phc = {
+            "none": None,
+            "platt": platt_scaling,
+            "isotonic": isotonic_regression,
+            "beta": beta_calibration,
+            "venn_abers": venn_abers_calibration,
+            "pearsonify": pearsonify
+        }
+
+        for m_n,m in models.items():
+            for p_n,p in phc.items():
+                if p is None:
+                    archs.append(Architecture(name=m_n ,model=m))
+                else:
+                    archs.append(Architecture(
+                        name=f"{m_n}.{p_n}"
+                        ,model=m
+                        ,calibration_set=True
+                        ,post_processing=p_n
+                    ))
         
-        #archs.append(Architecture(name="random_forest" ,model=rf))
-        #archs.append(Architecture(name="catboost" ,model=cb))
-        #archs.append(Architecture(name="xgboost" ,model=xgb))
-        #archs.append(Architecture(name="lightgbm" ,model=lgbm))
-        
-        archs.append(Architecture(name="tabTransformer" ,model=ttra))
-        #archs.append(Architecture(name="tabpfn" ,model=tpfn))
-        #archs.append(Architecture(name="mlp" ,model=mlp))
-        
-
-        # archs.append(Architecture(
-        #          name="catboost.platt_scaling"
-        #          ,model=cb
-        #          ,calibration_set=True
-        #          ,post_processing=platt_scaling
-        # ))
-
-        # archs.append(Architecture(
-        #          name="catboost.isotonic_regression"
-        #          ,model=cb
-        #          ,calibration_set=True
-        #          ,post_processing=isotonic_regression
-        # ))
-
-        # archs.append(Architecture(
-        #          name="catboost.beta_calibration"
-        #          ,model=cb
-        #          ,calibration_set=True
-        #          ,post_processing=beta_calibration
-        # ))
-        
-        # archs.append(Architecture(
-        #          name="catboost.venn_abers_calibration"
-        #          ,model=cb
-        #          ,calibration_set=True
-        #          ,post_processing=venn_abers_calibration
-        # ))
-
-        # archs.append(Architecture(
-        #          name="catboost.pearsonify"
-        #          ,model=cb
-        #          ,calibration_set=True
-        #          ,post_processing=pearsonify
-        # ))
-
         self.architectures = archs
