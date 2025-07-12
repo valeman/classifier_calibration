@@ -37,7 +37,7 @@ class TabTransformer:
         trainer_config = TrainerConfig(
             auto_lr_find=True,
             batch_size=1024,
-            max_epochs=1,
+            max_epochs=20,
         )
         optimizer_config = OptimizerConfig()
         
@@ -351,7 +351,7 @@ class ArchitectureSuite:
             "xgb": xgb,
             "lgbm": lgbm,
             "ttra": ttra,
-            "tpfn": tpfn,
+           # "tpfn": tpfn,
             "mlp": mlp
         }
         phc = {
@@ -372,7 +372,7 @@ class ArchitectureSuite:
                         name=f"{m_n}.{p_n}"
                         ,model=m
                         ,calibration_set=True
-                        ,post_processing=p_n
+                        ,post_processing=p
                     ))
         
         self.architectures = archs
