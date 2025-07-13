@@ -1,15 +1,18 @@
-import json
-import os
+from pycaleva import CalibrationEvaluator
+from calfram.calibration_framework import CalibrationFramework
 import components.config as config 
 import sklearn.metrics as skm 
 import pandas as pd
 import numpy as np
-from pycaleva import CalibrationEvaluator
-from calfram.calibration_framework import CalibrationFramework
+import json
+import os
 
 class PerformanceMeasures:
+    """
+    The PerformanceMeasures class collects a set of performance measurements and calculates them on demand. 
+    """
+
     def __init__(self, suite_name:str):
-        
         self.suite_name = suite_name
         self.measure_functions = {}
 
@@ -35,29 +38,26 @@ class PerformanceMeasures:
         """
         
         perf_measures = {}
-        for key,value in self.measure_functions.items():
-            perf_measures[key] = value(x_test, y_prob ,y_pred, y_test)
+        for measure,function in self.measure_functions.items():
+            perf_measures[measure] = function(x_test, y_prob ,y_pred, y_test)
         return perf_measures
     
 
     def init_v1(self) -> None:
         """
-        Collects all the functions which calculate the measures into the dictionary attribute measure_functions: 
-            Brier score, Spiegelhalter Z statistic, Log-loss, ECE frequency, ECI global, ECI balance,
-            AUC-ROC, Accuracy, Recall ,Precision and F1 Score
-
-        ECE and ECI are binned with the automatic monotonic sweep method.
-        
-        Y labels are in {0,1}
+        Collects all the functions which calculates the below measures into measure_functions: 
+            Brier score, Spiegelhalter Z statistic, Log-loss, ECE frequency, ECI global,
+            ECI balance, AUC-ROC, Accuracy, Recall ,Precision and F1 Score
 
         x_test:pd.DataFrame
         y_....:np.ndarray | shape: (n,)
+        
         x_test is a pandas dataframe where the instances belong to the labels y_test.
         y_prob is the probability of class 1 in the intervall [0,1].
         y_pred is the predicted class, 0 or 1.
         """
         
-        ce = lambda y_test, y_prob:CalibrationEvaluator(y_test, y_prob, outsample=True)
+        ce = lambda y_test, y_prob: CalibrationEvaluator(y_test, y_prob, outsample=True)
         
         self.measure_functions["brier_score"] = lambda                x_test, y_prob ,y_pred, y_test:  ce(y_test, y_prob).brier
         self.measure_functions["spiegelhalter_z_statistic"] = lambda  x_test, y_prob ,y_pred, y_test:  ce(y_test, y_prob).z_test().statistic

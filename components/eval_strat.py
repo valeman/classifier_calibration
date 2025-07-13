@@ -1,24 +1,26 @@
-import time
-import tracemalloc
-import psutil
-import gc
-import os
+from sklearn.model_selection import StratifiedKFold
+from typing import Generator
 import components.config as cf 
 import components.data as data
 import components.architectures as archs
 import components.performance as perf
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import StratifiedKFold
-from typing import Generator
+import tracemalloc
+import psutil
+import time
+import gc
+import os
 
 SEED = cf.SEED
 
 def get_mem_mb():
     return psutil.Process(os.getpid()).memory_info().rss / 1e6  # in MB
 
-
 class EvaluationStrategy:
+    """
+    The EvaluationStrategy standardizes the evaluation of an Architecture using a defined evaluation strategy and performance measurements. 
+    """
     def __init__(self, strategy:str, ds:data.Dataset, arch:archs.Architecture,  p_measures:perf.PerformanceMeasures):
         self.strategy = strategy
         self.ds = ds
@@ -27,8 +29,8 @@ class EvaluationStrategy:
         
         self.gen_sets = None
         match strategy:
-            case "v.1":
-                self.init_v1(ds, arch)
+            case "nested-5-fold-CV":
+                self.nested_5_fold_CV(ds, arch)
 
     def run(self) -> list[dict]:
         results = []
@@ -64,28 +66,28 @@ class EvaluationStrategy:
             y_pred = self.arch.predict(y_prob=y_prob)
 
             perf_measures = self.p_measures.calc_perf(x_test, y_prob ,y_pred,np.asarray(y_test))
-
-            perf_measures["wall_time_fit_sec"] = end_fit - start_fit
-            perf_measures["wall_time_predict_sec"] = end_pre - start_pre
-            perf_measures['cpu_time_user_fit_sec'] = cpu_fit_end.user - cpu_fit_start.user
-            perf_measures['cpu_time_system_fit_sec'] = cpu_fit_end.system - cpu_fit_start.system
-            perf_measures['cpu_time_user_predict_sec'] = cpu_pre_end.user - cpu_pre_start.user
-            perf_measures['cpu_time_system_predict_sec'] = cpu_pre_end.system - cpu_pre_start.system
-      
-            perf_measures["peak_ram_fit_mb"] = peak_ram_fit  / 1e6
-            perf_measures["peak_ram_predict_mb"] = peak_ram_pre / 1e6
-            perf_measures["total_ram_architecture_mb"] = ram_post_arch - ram_pre_arch
+            perf_measures = self.log_computational_performance(perf_measures
+                                                               , start_fit
+                                                               , end_fit
+                                                               , start_pre
+                                                               , end_pre
+                                                               , cpu_fit_start
+                                                               , cpu_fit_end
+                                                               , cpu_pre_start
+                                                               , cpu_pre_end
+                                                               , peak_ram_fit
+                                                               , peak_ram_pre
+                                                               , ram_pre_arch
+                                                               , ram_post_arch
+            )
             
-            perf_measures["n_train"] = len(x_train)
-            perf_measures["n_cal"] = 0 if x_cal is None else len(x_cal)
-            perf_measures["n_test"]= len(x_test)
-
+            
             perf_measures["status"]= "success"
             results.append(perf_measures)
             
         return results
     
-    def init_v1(self, ds:data.Dataset, arch:archs.Architecture)-> Generator[tuple[pd.DataFrame],None,None]:
+    def nested_5_fold_CV(self, ds:data.Dataset, arch:archs.Architecture)-> Generator[tuple[pd.DataFrame],None,None]:
         """
         Nested 5-fold cross validation, with 5 outer folds and 5 inner folds.  
         Outer heldout fold is test set, inner heldout fold is calibration set. 
@@ -134,4 +136,28 @@ class EvaluationStrategy:
                     yield X_train, y_train, None, None, X_test, y_test
 
         self.gen_sets = gen_sets
-     
+    
+    def log_computational_performance(self, perf_measures:dict
+                                      , start_fit
+                                      , end_fit
+                                      , start_pre
+                                      , end_pre
+                                      , cpu_fit_start
+                                      , cpu_fit_end
+                                      , cpu_pre_start
+                                      , cpu_pre_end
+                                      , peak_ram_fit
+                                      , peak_ram_pre
+                                      , ram_pre_arch
+                                      ,ram_post_arch
+                                    ) -> dict:
+        perf_measures["wall_time_fit_sec"] = end_fit - start_fit
+        perf_measures["wall_time_predict_sec"] = end_pre - start_pre
+        perf_measures['cpu_time_user_fit_sec'] = cpu_fit_end.user - cpu_fit_start.user
+        perf_measures['cpu_time_system_fit_sec'] = cpu_fit_end.system - cpu_fit_start.system
+        perf_measures['cpu_time_user_predict_sec'] = cpu_pre_end.user - cpu_pre_start.user
+        perf_measures['cpu_time_system_predict_sec'] = cpu_pre_end.system - cpu_pre_start.system
+        perf_measures["peak_ram_fit_mb"] = peak_ram_fit  / 1e6
+        perf_measures["peak_ram_predict_mb"] = peak_ram_pre / 1e6
+        perf_measures["total_ram_architecture_mb"] = ram_post_arch - ram_pre_arch
+        return perf_measures            

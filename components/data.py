@@ -124,19 +124,16 @@ class Dataset:
     def pre_process(self,method:str) -> None:
         """
         Apply a transformation on self.df
-        Should only support trivial transformations such as encodig text columns into numeric.
-        Pre processing in general should lie under architectures.
+        Should only support common transformations such as encodig text columns into numeric.
+        Pre processing in general should be architecture specific.
         Args:
-            method (str): How to pre process/transform self.df
+            method (str): How to pre process self.df
 
         """
         match method:
             case "detect_categorical":
                 detected_cat_cols = detect_categorical_columns(self.df[self.non_cat_columns])
-                self.meta_data["detected_cat_cols"] = detected_cat_cols
-                self.meta_data["cat_columns"].extend(detected_cat_cols)
-                self.meta_data["cat_features"].extend(detected_cat_cols)
-                self.meta_data["non_cat_features"] =  self.non_cat_columns
+                self._update_categorial_meta_data(detected_cat_cols)
                 
             case "encode_categoricals":
                 cat_cols = self.meta_data["cat_columns"]
@@ -175,8 +172,22 @@ class Dataset:
 
             case _:
                 raise NotImplementedError
+            
+    def _update_categorial_meta_data(self, detected_cat_cols:list[str]) -> None:
+        """
+        Updates meta data to reflect all categorical features. 
 
-
+        Args:
+            detected_cat_cols (list[str]): A list of detected categorical features.
+        """
+        self.meta_data["detected_cat_cols"] = detected_cat_cols
+        self.meta_data["cat_columns"].extend(detected_cat_cols)
+        self.meta_data["cat_features"].extend(detected_cat_cols)
+        self.meta_data["non_cat_features"] =  self.non_cat_columns
+        features = [c for c in self.df.columns if not self.meta_data["target"]]
+        cat_features_indices = [i for i,c in enumerate(self.df[features].columns) if c in self.meta_data["cat_features"]]   
+        self.meta_data["cat_features_indices"] = cat_features_indices
+        
     def to_pandas(self) -> pd.DataFrame:
         """
         Returns self.df as a pandas dataframe.
@@ -193,15 +204,13 @@ class Dataset:
     def convert_to_pandas(self) -> None:
         """
         Convert self.df to a pandas dataframe.
-
-        Returns:
-            pd.DataFrame
         """
         self.df = self.to_pandas().copy()    
 
+
 class DatasetSuite:
     """
-    The DatasetSuite class retrieves a collection of datasets (a suite) and returns them iteratively. 
+    The DatasetSuite class retrieves a collection of datasets (a suite) and returns each dataset iteratively. 
     """
 
     def __init__(self, suite_name:str):
@@ -214,17 +223,15 @@ class DatasetSuite:
         self.n_datasets = None
 
         match suite_name:
-            case "Tabarena-v0.1":
-                self.dataset_suite = self.get_tabarena_v01()
-            case "v.1":
-                self.dataset_suite = self.get_tabarena_v01_Binary()
+            case "Tabarena-v0.1-class":
+                self.dataset_suite = self.get_tabarena_v01_class()
+            case "Tabarena-v0.1-binary":
+                self.dataset_suite = self.get_tabarena_v01_binary()
             case _:
                 raise NotImplementedError
             
         self.n_datasets = len(self.dataset_suite)
         
-      
-
     def __iter__(self) -> Dataset:
         """
         Iteratively collect each dataset in the suite from it's source into RAM. 
@@ -236,29 +243,48 @@ class DatasetSuite:
 
         for i in range(self.n_datasets):
             match self.suite_name:
-                case "Tabarena-v0.1" | "v.1" :
-                    task_info = self.dataset_suite.iloc[i]
-                    tid = int(task_info["tid"])
-                    name = task_info["name"]
-                    target = task_info["target_feature"]
-                    df, cat_columns = get_openml_task(tid)
-                    if target not in cat_columns: #TODO: Hot fix which amends: online_shoppers_intention. Not ideal. 
-                        cat_columns.append(target)
-                    cat_features = cat_columns.copy()
-                    cat_features.remove(target)
-                    dataset = Dataset(df = df
-                                    ,df_name = name
-                                    ,meta_data = {"source":"openml"
-                                                  ,"target":target
-                                                  ,"cat_columns":cat_columns
-                                                  ,"cat_features":cat_features
-                                                }
-                    )
+                case "Tabarena-v0.1-class" | "Tabarena-v0.1-binary":
+                    dataset = self._load_openml_class_task(i)
                 case _:
                     raise NotImplementedError
             yield dataset
 
-    def get_tabarena_v01(self) -> pd.DataFrame:
+    def _load_openml_class_task(self, index:int) -> Dataset:
+        """
+        Download the openml classification task at the given index in the suite.
+        Return the dataset
+
+        Args:
+            index (int)
+        
+        Returns:
+            Dataset
+        """
+        task_info = self.dataset_suite.iloc[index]
+        
+        tid = int(task_info["tid"])
+        name = task_info["name"]
+        target = task_info["target_feature"]
+        
+        df, cat_columns = get_openml_task(tid)
+        
+        if target not in cat_columns: 
+            cat_columns.append(target)
+
+        cat_features = cat_columns.copy()
+        cat_features.remove(target)
+
+        dataset = Dataset(df = df
+                        ,df_name = name
+                        ,meta_data = {"source":"openml"
+                                        ,"target":target
+                                        ,"cat_columns":cat_columns
+                                        ,"cat_features":cat_features
+                        }
+        )
+        return dataset
+
+    def get_tabarena_v01_class(self) -> pd.DataFrame:
         """
         Collects the classification tasks (datasets) of the TabArena-v0.1 Suite
         """
@@ -269,12 +295,12 @@ class DatasetSuite:
         class_tasks = class_tasks.reset_index(drop=True)
         return class_tasks
     
-    def get_tabarena_v01_Binary(self) -> pd.DataFrame:
+    def get_tabarena_v01_binary(self) -> pd.DataFrame:
         """
         Collects the binary classification tasks (datasets) of the TabArena-v0.1 Suite
         """
-        tasks = self.get_tabarena_v01()
-        class_tasks = tasks[tasks["NumberOfClasses"] == 2]
-        return class_tasks        
+        class_tasks = self.get_tabarena_v01()
+        binary_class_tasks = class_tasks[class_tasks["NumberOfClasses"] == 2]
+        return binary_class_tasks        
 
                
