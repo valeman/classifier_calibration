@@ -276,7 +276,7 @@ class ArchitectureSuite:
         ) 
 
 
-        tpfn_instantiator = lambda meta_data: {"random_state":SEED, "ignore_pretraining_limits":True, "memory_saving_mode":True, "fit_mode":"low_memory"}
+        tpfn_instantiator = lambda meta_data: {"random_state":SEED, "ignore_pretraining_limits":True, "memory_saving_mode":"auto", "fit_mode":"low_memory"}
         tpfn = Model(learner_class=TabPFNClassifier
                    ,instatiator_fn=tpfn_instantiator
                    ,fit_fn=md_std_fit
@@ -342,6 +342,7 @@ class ArchitectureSuite:
             ,fit_fn = pp_std_fit
             ,predict_prob_fn = pp_std_predict_prob
         )
+
         models = {
             "svm": svm,
             "lr": lr,
@@ -351,9 +352,10 @@ class ArchitectureSuite:
             "xgb": xgb,
             "lgbm": lgbm,
             "ttra": ttra,
-           # "tpfn": tpfn,
+            "tpfn": tpfn,
             "mlp": mlp
         }
+        
         phc = {
             "none": None,
             "platt": platt_scaling,

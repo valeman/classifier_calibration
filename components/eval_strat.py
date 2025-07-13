@@ -80,6 +80,7 @@ class EvaluationStrategy:
             perf_measures["n_cal"] = 0 if x_cal is None else len(x_cal)
             perf_measures["n_test"]= len(x_test)
 
+            perf_measures["status"]= "success"
             results.append(perf_measures)
             
         return results
