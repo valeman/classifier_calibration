@@ -99,16 +99,23 @@ class PerformanceMeasures:
         self.measure_functions["ece_freq"] = lambda       x_test, y_prob ,y_pred, y_test: calfram_measures("ece_freq", y_test, y_prob, y_pred)
 
 
+def save_results_to_disk(results:dict, output_dir:str) -> None:
+    """
+    Save the results dict to results.txt in the given directory 
+    under the current working directory
 
-class AnalyzePerformance:
-    def __init__(self, study_ver ,results):
-        self.study_ver = study_ver
-        self.results = results
+    Args:
+        results (dict)
+        output_dir (str): Example: "results" 
+    """
+    output_dir = os.path.join(os.getcwd(), output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    filename = os.path.join(output_dir, "results.txt")
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(results, f, ensure_ascii=False, indent=2)
 
-    def run(self):
-        raise NotImplementedError
 
-    def save_to_disk(self,output_dir):
-        filename = os.path.join(output_dir, "results.txt")
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(self.results, f, ensure_ascii=False, indent=2)
+
+def analyse_results(results:dict, output_dir:str) -> None:
+    raise NotImplementedError
+

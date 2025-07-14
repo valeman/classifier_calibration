@@ -40,7 +40,6 @@ if __name__ == "__main__":
             if arch.name not in results.keys():
                 results[arch.name] = {}
             
-            
             cf.logger.info(f"Run evaluation")
             eval_strat = es.EvaluationStrategy(eval_strat_name, ds, arch,  p_measures)  
             try:
@@ -57,12 +56,9 @@ if __name__ == "__main__":
 
     cf.logger.info("Experiment completed")
         
-    cf.logger.info("Analyse performance")
-    analysis = perf.AnalyzePerformance(study_version, results)
-    #analysis.run()
-    
     cf.logger.info("Export results")
-    output_dir = os.path.join(os.getcwd(), output_dir)
-    os.makedirs(output_dir, exist_ok=True)
-    analysis.save_to_disk(output_dir)
+    perf.save_results_to_disk(results, output_dir)
+
+    #cf.logger.info("Analyse results")
+    #perf.analyse_results(results, output_dir)
     
