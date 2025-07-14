@@ -107,6 +107,8 @@ class Dataset:
         self.df = df
         self.df_name = df_name
         self.meta_data = meta_data
+        self.meta_data["n_columns"] = len(self.df.columns)
+        self.meta_data["n_rows"] = len(self.df)
     
     @property
     def non_cat_columns(self) -> list[str]:
@@ -184,7 +186,7 @@ class Dataset:
         self.meta_data["cat_columns"].extend(detected_cat_cols)
         self.meta_data["cat_features"].extend(detected_cat_cols)
         self.meta_data["non_cat_features"] =  self.non_cat_columns
-        features = [c for c in self.df.columns if not self.meta_data["target"]]
+        features = [c for c in self.df.columns if c != self.meta_data["target"]]
         cat_features_indices = [i for i,c in enumerate(self.df[features].columns) if c in self.meta_data["cat_features"]]   
         self.meta_data["cat_features_indices"] = cat_features_indices
         
@@ -299,7 +301,7 @@ class DatasetSuite:
         """
         Collects the binary classification tasks (datasets) of the TabArena-v0.1 Suite
         """
-        class_tasks = self.get_tabarena_v01()
+        class_tasks = self.get_tabarena_v01_class()
         binary_class_tasks = class_tasks[class_tasks["NumberOfClasses"] == 2]
         return binary_class_tasks        
 

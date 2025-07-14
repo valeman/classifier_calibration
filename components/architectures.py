@@ -10,7 +10,8 @@ from sklearn.neural_network import MLPClassifier
 from pytorch_tabular import TabularModel
 from pytorch_tabular.models import TabTransformerConfig
 from pytorch_tabular.config import DataConfig, TrainerConfig, OptimizerConfig
-from tabpfn import TabPFNClassifier 
+from tabpfn_extensions import TabPFNClassifier 
+from tabpfn_extensions.rf_pfn import RandomForestTabPFNClassifier
 from betacal import BetaCalibration
 from venn_abers import VennAbersCalibrator
 import pearsonify as pear
@@ -22,7 +23,7 @@ import os
 SEED = cf.SEED
 os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1") #Unsafe. Do not do this in prod.
 
-class TabTransformer:
+class WrapTabTransformer:
     """
     The TabTransformer class wraps the TabTransformer implementation of pytorch-tabualr to provide a standard API
     """
@@ -62,7 +63,43 @@ class TabTransformer:
         preds = np.asarray(preds["target_1_probability"]).reshape(-1,)
         return preds
 
-class Pearsonify:
+class WrapRFTabPFNClassifier:
+    """
+    TabPFN classification with Random Forest Preprocessing.
+    Standard TabPFN can spend hours fitting when the dataset becomes large.
+    Pre-processing required to make the model comparable to others in the suite. 
+    """
+    def __init__(self, random_state:int
+                 , categorical_features_indices:list[int]
+                 , ignore_pretraining_limits:bool
+                 , inference_config:dict
+                 , max_predict_time:int
+                 , fit_nodes:bool
+                 , adaptive_tree:bool 
+                ):
+        
+        clf_base = TabPFNClassifier(
+            random_state=random_state,
+            categorical_features_indices=categorical_features_indices,
+            ignore_pretraining_limits=ignore_pretraining_limits,
+            inference_config = inference_config
+        )
+
+        self.tabpfn_tree_clf = RandomForestTabPFNClassifier(
+            tabpfn=clf_base,
+            max_predict_time=max_predict_time, 
+            fit_nodes=fit_nodes, 
+            adaptive_tree=adaptive_tree, 
+        )
+
+    def fit(self,x:pd.DataFrame, y:pd.Series) -> None:
+        self.tabpfn_tree_clf.fit(x,y)
+    
+    def predict_proba(self, x:pd.DataFrame) -> None:
+        return self.tabpfn_tree_clf.predict_proba(x)        
+
+
+class WrapPearsonify:
     """
     The Pearsonify class wraps the post-hoc calibration technique from Pearsonify to provide a standard API
     """
@@ -84,11 +121,16 @@ class Pearsonify:
 
 
 class PreProcessing:
+    """
+    The PreProcessing class wraps around each pre processing technique to provide a standard API.  
+    Only supports (X,Y) to (X,Y) maps.
+    """
     def __init__(self):
         raise NotImplementedError
     
-    def apply(self, x):
+    def apply(self, x:pd.DataFrame,y:pd.Series) -> tuple[pd.DataFrame, pd.Series]:
         raise NotImplementedError
+        return x, y
 
 
 class PostProcessing:
@@ -108,7 +150,7 @@ class PostProcessing:
         cf.logger.info(f"Post-processing:{self.pp_name} instantiated with:{self.instatiator_fn(meta_data)}")
         self.learner = self.learner_class(**self.instatiator_fn(meta_data))
 
-    def fit(self, y_instance:np.array, y_target:np.Series):
+    def fit(self, y_instance:np.array, y_target:pd.Series):
         self._fit_fn(self.learner, y_instance, y_target)
     
     def predict_prob(self, y:np.array):
@@ -237,7 +279,7 @@ class ArchitectureSuite:
             "xgb": XGBoost
             "lgbm": LightGBM
             "ttra": TabTransformer
-            "tpfn": TabPFN
+            "rftpfn": Randomforest TabPFN
             "mlp": Multilayer Perceptron 
 
             And the post-processing techniques:
@@ -325,22 +367,25 @@ class ArchitectureSuite:
                                               , "categorical_cols":meta_data["cat_features"]
                                             }
         ttra = Model(model_name="ttra"
-                   ,learner_class=TabTransformer
+                   ,learner_class=WrapTabTransformer
                    ,instatiator_fn=ttra_instantiator
                    ,fit_fn=md_std_fit
                    ,predict_prob_fn=md_std_predict_prob
         ) 
 
 
-        tpfn_instantiator = lambda meta_data: {"random_state":SEED
+        rf_tpfn_instantiator = lambda meta_data: {"random_state":SEED
                                                ,"categorical_features_indices":meta_data["cat_features_indices"]
                                                , "ignore_pretraining_limits":True
-                                               , "memory_saving_mode":"auto"
-                                               , "fit_mode":"low_memory"
+                                               ,"inference_config":{"SUBSAMPLE_SAMPLES": 10000}
+                                               ,"max_predict_time":60
+                                               ,"fit_nodes":True
+                                               ,"adaptive_tree":True
                                             }
-        tpfn = Model(model_name="tabpfn"
-                   ,learner_class=TabPFNClassifier
-                   ,instatiator_fn=tpfn_instantiator
+           
+        rf_tpfn = Model(model_name="rf.tabpfn"
+                   ,learner_class=WrapRFTabPFNClassifier
+                   ,instatiator_fn=rf_tpfn_instantiator
                    ,fit_fn=md_std_fit
                    ,predict_prob_fn=md_std_predict_prob
                    ,pre_trained_model=True
@@ -405,7 +450,7 @@ class ArchitectureSuite:
         pe_instantiator = lambda meta_data: {"alpha":0.05}
         pearsonify = PostProcessing(
             pp_name="pearsonify"
-            ,learner_class = Pearsonify
+            ,learner_class = WrapPearsonify
             ,instatiator_fn = pe_instantiator
             ,fit_fn = pp_std_fit
             ,predict_prob_fn = pp_std_predict_prob
@@ -420,7 +465,7 @@ class ArchitectureSuite:
           xgb,
           lgbm,
           ttra,
-          tpfn,
+          rf_tpfn,
           mlp
         ]
         

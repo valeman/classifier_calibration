@@ -26,7 +26,6 @@ if __name__ == "__main__":
         cf.logger.info(f"Dataset name:{ds.df_name}")
 
         cf.logger.info(f"Start common pre-processing")
-        
         ds.convert_to_pandas()
         ds.pre_process("convert_unknown_to_nan") #Replace all "unknown" with nan
         ds.pre_process("detect_categorical") #Tag object columns as categorical
@@ -55,7 +54,6 @@ if __name__ == "__main__":
                     ,"trace": traceback.format_exc()
                 }
             cf.logger.info(f"End evaluation")
-        
 
     cf.logger.info("Experiment completed")
         
