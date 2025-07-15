@@ -19,12 +19,14 @@ if __name__ == "__main__":
     datasets = data.DatasetSuite(ds_suite_name)
     p_measures = perf.PerformanceMeasures(study_version)
     architectures = archs.ArchitectureSuite(study_version)
+    datasets_metadata = {}
     results = {}
 
     cf.logger.info("Starting experiment")
-    for ds in tqdm(datasets, desc=f"Dataset suite", unit="ds", total=datasets.n_datasets):
-        cf.logger.info(f"Dataset name:{ds.df_name}")
-
+    count = 0
+    for ds_idx, ds in enumerate(tqdm(datasets, desc="Dataset suite", unit="ds", total=datasets.n_datasets), 1):
+        dataset_desc = f"[{ds_idx}/{datasets.n_datasets}] Dataset: {ds.df_name}"
+        tqdm.write(dataset_desc)  
         cf.logger.info(f"Start common pre-processing")
         ds.convert_to_pandas()
         ds.pre_process("convert_unknown_to_nan") #Replace all "unknown" with nan
@@ -32,10 +34,14 @@ if __name__ == "__main__":
         ds.pre_process("convert_nan_to_'NON'") #Replace nan in cat columns with "non"
         ds.pre_process("encode_categoricals") 
         ds.pre_process("clean_numerical") #Ensure non-cat object columns only contain numbers.
-        
         cf.logger.info(f"End common pre-processing")
         
-        for arch in tqdm(architectures, desc=f"Architecture suite", unit="arch", total=architectures.n_architectures):
+        datasets_metadata[ds.df_name] = ds.meta_data
+
+        for arch_idx, arch in enumerate(tqdm(architectures, desc="Architecture suite", unit="arch", total=architectures.n_architectures, leave=False), 1):
+            arch_desc = f"    [{arch_idx}/{architectures.n_architectures}] Architecture: {arch.name}"
+            tqdm.write(arch_desc)
+
             cf.logger.info(f"Evaluate Architecture:{arch.name}")
             if arch.name not in results.keys():
                 results[arch.name] = {}
@@ -53,11 +59,17 @@ if __name__ == "__main__":
                     ,"trace": traceback.format_exc()
                 }
             cf.logger.info(f"End evaluation")
-
+        
+        if count == 1:
+            break
+        count += 1
+    
     cf.logger.info("Experiment completed")
         
     cf.logger.info("Export results")
     perf.save_results_to_disk(results, output_dir)
+    data.save_metadata_to_disk(datasets_metadata, output_dir)
+    
 
     #cf.logger.info("Analyse results")
     #perf.analyse_results(results, output_dir)

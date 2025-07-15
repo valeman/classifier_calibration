@@ -1,9 +1,27 @@
 import pandas as pd
 import numpy as np
 import openml
+import os
+import json
 import components.config as cf
 
 SEED = cf.SEED
+
+
+def save_metadata_to_disk(datasets_md:dict, output_dir:str) -> None:
+    """
+    Save the meta_data dicts to datasets_md.txt in the given directory 
+    under the current working directory
+
+    Args:
+        datasets_md (dict)
+        output_dir (str): Example: "results" 
+    """
+    output_dir = os.path.join(os.getcwd(), output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+    filename = os.path.join(output_dir, "datasets_md.txt")
+    with open(filename, 'w', encoding='utf-8') as f:
+        json.dump(datasets_md, f, ensure_ascii=False, indent=2)
 
 def get_openml_task(taskid:int)-> tuple[pd.DataFrame,list]:
     """

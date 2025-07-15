@@ -464,8 +464,8 @@ class ArchitectureSuite:
           cb,
           xgb,
           lgbm,
-          ttra,
-          rf_tpfn,
+        #  ttra,
+        #  rf_tpfn,
           mlp
         ]
         
