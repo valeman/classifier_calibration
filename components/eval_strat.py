@@ -21,21 +21,22 @@ class EvaluationStrategy:
     """
     The EvaluationStrategy standardizes the evaluation of an Architecture using a defined evaluation strategy and performance measurements. 
     """
-    def __init__(self, strategy:str, ds:data.Dataset, arch:archs.Architecture,  p_measures:perf.PerformanceMeasures):
+    def __init__(self, strategy:str, ds:data.Dataset, p_measures:perf.PerformanceMeasures):
         self.strategy = strategy
         self.ds = ds
-        self.arch = arch 
         self.p_measures = p_measures
         
         self.gen_sets = None
         match strategy:
-            case "nested-5-fold-CV":
-                self.nested_5_fold_CV(ds, arch)
-
+            case "5-fold-CV":
+                self.k_fold_CV(ds, k=5)
+            case _:
+                raise NotImplementedError
+            
     def run(self) -> list[dict]:
         results = []
         process = psutil.Process()
-        for x_train, y_train, x_cal, y_cal, x_test, y_test in self.gen_sets():
+        for x_train, y_train, x_test, y_test in self.gen_sets():
             
             gc.collect()
             ram_pre_arch = get_mem_mb() 
@@ -43,7 +44,7 @@ class EvaluationStrategy:
             cpu_fit_start = process.cpu_times()
             start_fit = time.perf_counter()
 
-            self.arch.fit(self.ds.meta_data, x_train, y_train, x_cal, y_cal)
+            self.arch.fit(self.ds.meta_data, x_train, y_train)
             
             end_fit = time.perf_counter()
             cpu_fit_end = process.cpu_times()
@@ -87,22 +88,20 @@ class EvaluationStrategy:
             
         return results
     
-    def nested_5_fold_CV(self, ds:data.Dataset, arch:archs.Architecture)-> Generator[tuple[pd.DataFrame],None,None]:
+    def k_fold_CV(self, ds:data.Dataset, k=5)-> Generator[tuple[pd.DataFrame],None,None]:
         """
-        Nested 5-fold cross validation, with 5 outer folds and 5 inner folds.  
-        Outer heldout fold is test set, inner heldout fold is calibration set. 
-        No inner cross validation if no calibration set is requested by the architecture. 
-
+        Implements k-fold cross validation.  
+        Outer heldout fold is test set, remaining is the training set. 
+        
         Each fold is made through randomized stratified sampling without replacement.
         The strata is the target, ensuring that each class is represented in each fold according
         to it's relative empirical frequency.
 
         Args:
             ds (data.Dataset): A tabular dataset
-            arch (archs.Architecture): The architecture
-
+        
         Yields:
-            Generator[tuple[pd.DataFrame]]: A generator yielding the sets: x_train, y_train, x_calibration, y_calibration, x_test, y_test
+            Generator[tuple[pd.DataFrame]]: A generator yielding the sets: x_train, y_train, x_test, y_test
         """
         # Extract target name and full DataFrame
         target_col = ds.meta_data['target']
@@ -112,28 +111,15 @@ class EvaluationStrategy:
         X = df.drop(columns=[target_col])
         y = df[target_col]
 
-        
         def gen_sets():
-            # Outer stratified split
-            outer_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
-            for train_idx, test_idx in outer_cv.split(X, y):
+            # Stratified split
+            cv = StratifiedKFold(n_splits=k, shuffle=True, random_state=SEED)
+            for train_idx, test_idx in cv.split(X, y):
                 X_train = X.iloc[train_idx].reset_index(drop=True)
                 y_train = y.iloc[train_idx].reset_index(drop=True)
                 X_test = X.iloc[test_idx].reset_index(drop=True)
                 y_test = y.iloc[test_idx].reset_index(drop=True)
-
-                # If calibration set requested, perform inner stratified split
-                if arch.calibration_set:
-                    inner_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
-                    for inner_train_idx, cal_idx in inner_cv.split(X_train, y_train):
-                        X_in_train = X_train.iloc[inner_train_idx].reset_index(drop=True)
-                        y_in_train = y_train.iloc[inner_train_idx].reset_index(drop=True)
-                        X_cal = X_train.iloc[cal_idx].reset_index(drop=True)
-                        y_cal = y_train.iloc[cal_idx].reset_index(drop=True)
-                        yield X_in_train, y_in_train, X_cal, y_cal, X_test, y_test
-                else:
-                    # No calibration set: inner split skipped
-                    yield X_train, y_train, None, None, X_test, y_test
+                yield X_train, y_train, X_test, y_test
 
         self.gen_sets = gen_sets
     

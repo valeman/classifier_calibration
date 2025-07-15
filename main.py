@@ -5,12 +5,11 @@ import components.eval_strat as es
 import components.architectures as archs
 import components.performance as perf
 import traceback
-import os 
 
 
 study_version = "v.1"
 ds_suite_name = "Tabarena-v0.1-binary"
-eval_strat_name = "nested-5-fold-CV"
+eval_strat_name = "5-fold-CV"
 output_dir = "results"
 
 if __name__ == "__main__":
@@ -24,9 +23,8 @@ if __name__ == "__main__":
 
     cf.logger.info("Starting experiment")
     count = 0
-    for ds_idx, ds in enumerate(tqdm(datasets, desc="Dataset suite", unit="ds", total=datasets.n_datasets), 1):
-        dataset_desc = f"[{ds_idx}/{datasets.n_datasets}] Dataset: {ds.df_name}"
-        tqdm.write(dataset_desc)  
+    for ds in tqdm(datasets, desc="Dataset suite", unit="ds", total=datasets.n_datasets):
+        tqdm.write(f"Dataset: {ds.df_name}")  
         cf.logger.info(f"Start common pre-processing")
         ds.convert_to_pandas()
         ds.pre_process("convert_unknown_to_nan") #Replace all "unknown" with nan
@@ -38,8 +36,8 @@ if __name__ == "__main__":
         
         datasets_metadata[ds.df_name] = ds.meta_data
 
-        for arch_idx, arch in enumerate(tqdm(architectures, desc="Architecture suite", unit="arch", total=architectures.n_architectures, leave=False), 1):
-            arch_desc = f"    [{arch_idx}/{architectures.n_architectures}] Architecture: {arch.name}"
+        for arch in tqdm(architectures, desc="Architecture suite", unit="arch", total=architectures.n_architectures, leave=False):
+            arch_desc = f"Architecture: {arch.name}"
             tqdm.write(arch_desc)
 
             cf.logger.info(f"Evaluate Architecture:{arch.name}")
@@ -47,7 +45,7 @@ if __name__ == "__main__":
                 results[arch.name] = {}
             
             cf.logger.info(f"Run evaluation")
-            eval_strat = es.EvaluationStrategy(eval_strat_name, ds, arch,  p_measures)  
+            eval_strat = es.EvaluationStrategy(eval_strat_name, ds, p_measures)  
             try:
                 results[arch.name][ds.df_name] = eval_strat.run()
 

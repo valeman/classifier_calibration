@@ -1,6 +1,7 @@
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.isotonic import IsotonicRegression
 from sklearn.svm import SVC
@@ -196,14 +197,23 @@ class Architecture:
         self.calibration_set = calibration_set
         self.post_processing = post_processing
         
-
     def fit(self, meta_data:dict
             , x_train:pd.DataFrame
             , y_train:pd.Series
-            , x_calibration:pd.DataFrame=None
-            , y_calibration:pd.Series=None
-        ) -> None:
+                ) -> None:
         
+        x_calibration = None
+        y_calibration = None
+        if self.calibration_set:
+            x_train, x_calibration, y_train, y_calibration = train_test_split(
+                x_train
+                ,y_train
+                ,stratify=True
+                ,shuffle=True
+                ,train_size=0.8
+                ,random_state=SEED
+            )
+
         self.model.instantiate(meta_data)
         self.model.fit(x_train, y_train)
 
