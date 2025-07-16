@@ -10,12 +10,9 @@ import tracemalloc
 import psutil
 import time
 import gc
-import os
 
 SEED = cf.SEED
 
-def get_mem_mb():
-    return psutil.Process(os.getpid()).memory_info().rss / 1e6  # in MB
 
 class EvaluationStrategy:
     """
@@ -39,7 +36,6 @@ class EvaluationStrategy:
         for x_train, y_train, x_test, y_test in self.gen_sets():
             
             gc.collect()
-            ram_pre_arch = get_mem_mb() 
             tracemalloc.start()
             cpu_fit_start = process.cpu_times()
             start_fit = time.perf_counter()
@@ -50,7 +46,6 @@ class EvaluationStrategy:
             cpu_fit_end = process.cpu_times()
             _, peak_ram_fit = tracemalloc.get_traced_memory()
             tracemalloc.stop()
-            ram_post_arch = get_mem_mb()
             
             gc.collect()
             tracemalloc.start()
@@ -78,8 +73,6 @@ class EvaluationStrategy:
                                                                , cpu_pre_end
                                                                , peak_ram_fit
                                                                , peak_ram_pre
-                                                               , ram_pre_arch
-                                                               , ram_post_arch
             )
             
             
@@ -134,8 +127,6 @@ class EvaluationStrategy:
                                       , cpu_pre_end
                                       , peak_ram_fit
                                       , peak_ram_pre
-                                      , ram_pre_arch
-                                      ,ram_post_arch
                                     ) -> dict:
         perf_measures["wall_time_fit_sec"] = end_fit - start_fit
         perf_measures["wall_time_predict_sec"] = end_pre - start_pre
@@ -145,5 +136,4 @@ class EvaluationStrategy:
         perf_measures['cpu_time_system_predict_sec'] = cpu_pre_end.system - cpu_pre_start.system
         perf_measures["peak_ram_fit_mb"] = peak_ram_fit  / 1e6
         perf_measures["peak_ram_predict_mb"] = peak_ram_pre / 1e6
-        perf_measures["total_ram_architecture_mb"] = ram_post_arch - ram_pre_arch
         return perf_measures            
