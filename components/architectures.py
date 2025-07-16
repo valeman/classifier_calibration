@@ -11,8 +11,7 @@ from sklearn.neural_network import MLPClassifier
 from pytorch_tabular import TabularModel
 from pytorch_tabular.models import TabTransformerConfig
 from pytorch_tabular.config import DataConfig, TrainerConfig, OptimizerConfig
-from tabpfn_extensions import TabPFNClassifier 
-from tabpfn_extensions.rf_pfn import RandomForestTabPFNClassifier
+from tabpfn import TabPFNClassifier 
 from betacal import BetaCalibration
 from venn_abers import VennAbersCalibrator
 import pearsonify as pear
@@ -26,7 +25,7 @@ os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1") #Unsafe. Do not d
 
 class WrapTabTransformer:
     """
-    The TabTransformer class wraps the TabTransformer implementation of pytorch-tabualr to provide a standard API
+    The TabTransformer class wraps the TabTransformer implementation of pytorch-tabular to provide a standard API
     """
     def __init__(self, random_state:int, continuous_cols:list[str], categorical_cols:list[str]):
         self.random_state = random_state
@@ -43,6 +42,7 @@ class WrapTabTransformer:
             auto_lr_find=True,
             batch_size=1024,
             max_epochs=20,
+            devices=-1,
         )
         optimizer_config = OptimizerConfig()
         
@@ -62,42 +62,7 @@ class WrapTabTransformer:
         x[x.columns] = x[x.columns].astype("object")
         preds = self.tabular_model.predict(x)
         preds = np.asarray(preds["target_1_probability"]).reshape(-1,)
-        return preds
-
-class WrapRFTabPFNClassifier:
-    """
-    TabPFN classification with Random Forest Preprocessing.
-    Standard TabPFN can spend hours fitting when the dataset becomes large.
-    Pre-processing required to make the model comparable to others in the suite. 
-    """
-    def __init__(self, random_state:int
-                 , categorical_features_indices:list[int]
-                 , ignore_pretraining_limits:bool
-                 , inference_config:dict
-                 , max_predict_time:int
-                 , fit_nodes:bool
-                 , adaptive_tree:bool 
-                ):
-        
-        clf_base = TabPFNClassifier(
-            random_state=random_state,
-            categorical_features_indices=categorical_features_indices,
-            ignore_pretraining_limits=ignore_pretraining_limits,
-            inference_config = inference_config
-        )
-
-        self.tabpfn_tree_clf = RandomForestTabPFNClassifier(
-            tabpfn=clf_base,
-            max_predict_time=max_predict_time, 
-            fit_nodes=fit_nodes, 
-            adaptive_tree=adaptive_tree, 
-        )
-
-    def fit(self,x:pd.DataFrame, y:pd.Series) -> None:
-        self.tabpfn_tree_clf.fit(x,y)
-    
-    def predict_proba(self, x:pd.DataFrame) -> None:
-        return self.tabpfn_tree_clf.predict_proba(x)        
+        return preds       
 
 
 class WrapPearsonify:
@@ -147,15 +112,15 @@ class PostProcessing:
         self._fit_fn = fit_fn
         self._predict_prob_fn = predict_prob_fn
     
-    def instantiate(self, meta_data:dict):
+    def instantiate(self, meta_data:dict) -> None:
         cf.logger.info(f"Post-processing:{self.pp_name} instantiated with:{self.instatiator_fn(meta_data)}")
         self.learner = self.learner_class(**self.instatiator_fn(meta_data))
 
-    def fit(self, y_instance:np.array, y_target:pd.Series):
+    def fit(self, y_instance:np.array, y_target:pd.Series) -> None:
         self._fit_fn(self.learner, y_instance, y_target)
     
-    def predict_prob(self, y:np.array):
-        return self._predict_prob_fn(self.learner, y)
+    def predict_prob(self, y:np.array) -> np.array:
+        return np.asarray(self._predict_prob_fn(self.learner, y))
 
 
 class Model:
@@ -171,7 +136,7 @@ class Model:
         self._fit_fn = fit_fn
         self._predict_prob_fn = predict_prob_fn
     
-    def instantiate(self, meta_data:dict):
+    def instantiate(self, meta_data:dict) -> None:
         cf.logger.info(f"Model:{self.model_name} instantiated with:{self.instatiator_fn(meta_data)}")
         self.learner = self.learner_class(**self.instatiator_fn(meta_data))
 
@@ -179,7 +144,7 @@ class Model:
         self._fit_fn(self.learner, x, y)
     
     def predict_prob(self, x:pd.DataFrame) -> np.array:
-        return self._predict_prob_fn(self.learner, x)
+        return np.asarray(self._predict_prob_fn(self.learner, x))
 
 
 class Architecture:
@@ -208,7 +173,7 @@ class Architecture:
             x_train, x_calibration, y_train, y_calibration = train_test_split(
                 x_train
                 ,y_train
-                ,stratify=True
+                ,stratify=y_train
                 ,shuffle=True
                 ,train_size=0.8
                 ,random_state=SEED
@@ -219,11 +184,9 @@ class Architecture:
 
         if not (self.post_processing is None):
             y_cal_prob = self.model.predict_prob(x_calibration if self.calibration_set else x_train)
-            
-            y_cal_prob = np.asarray(y_cal_prob)
+
             if y_cal_prob.ndim == 2 and y_cal_prob.shape[1] == 2:
                 y_cal_prob =  y_cal_prob[:, 1]
-            
             if y_cal_prob.ndim == 1:
                 y_cal_prob = y_cal_prob.reshape(-1,1)
 
@@ -234,11 +197,10 @@ class Architecture:
     def predict_prob(self, x:pd.DataFrame) -> np.array:
         y_prob = self.model.predict_prob(x)
 
-        y_prob = np.asarray(y_prob)
         if y_prob.ndim == 2 and y_prob.shape[1] == 2:
             y_prob =  y_prob[:, 1]
     
-        if self.post_processing:
+        if not (self.post_processing is None):
             if y_prob.ndim == 1:
                 y_prob = y_prob.reshape(-1,1)
 
@@ -250,8 +212,8 @@ class Architecture:
         return y_prob
     
 
-    def predict(self, x=None, y_prob=None):
-        if x:
+    def predict(self, x=None, y_prob=None) -> np.array:
+        if not (x is None):
             y_prob = self.predict_prob(x)
         
         if y_prob.ndim == 1:
@@ -305,7 +267,9 @@ class ArchitectureSuite:
         md_std_fit = lambda learner, x, y: learner.fit(x, y)
         md_std_predict_prob = lambda learner, x: learner.predict_proba(x)
         
-        cb_instantiator = lambda meta_data: {"random_seed":SEED, "verbose":False, "cat_features":meta_data["cat_features"]}
+        cb_instantiator = lambda meta_data: {"random_seed":SEED
+                                             ,"thread_count":-1
+                                             , "cat_features":meta_data["cat_features"]}
         cb = Model(model_name="cb"
                    ,learner_class= CatBoostClassifier
                    ,instatiator_fn=cb_instantiator
@@ -313,7 +277,7 @@ class ArchitectureSuite:
                    ,predict_prob_fn=md_std_predict_prob
         ) 
         
-        rf_instantiator = lambda meta_data: {"random_state":SEED}
+        rf_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
         rf = Model(model_name="rf"
                    ,learner_class=RandomForestClassifier
                    ,instatiator_fn=rf_instantiator
@@ -322,23 +286,24 @@ class ArchitectureSuite:
         ) 
 
         
-        xgb_instantiator = lambda meta_data: {"random_state":SEED, "enable_categorical":True}
+        xgb_instantiator = lambda meta_data: {"random_state":SEED, "enable_categorical":True, "n_jobs":-1}
         xgb = Model(model_name="xgb"
                    ,learner_class=XGBClassifier
                    ,instatiator_fn=xgb_instantiator
                    ,fit_fn=md_std_fit
                    ,predict_prob_fn=md_std_predict_prob
         ) 
-              
-        lgbm_instantiator = lambda meta_data: {"random_state":SEED}
+        
+        md_lgbm_fit = lambda learner, x, y: learner.fit(x, y, categorical_feature=x.select_dtypes(include='category').columns.tolist())
+        lgbm_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
         lgbm = Model(model_name="lgbm"
                    ,learner_class=LGBMClassifier
                    ,instatiator_fn=lgbm_instantiator
-                   ,fit_fn=md_std_fit
+                   ,fit_fn=md_lgbm_fit
                    ,predict_prob_fn=md_std_predict_prob
         ) 
 
-        lr_instantiator = lambda meta_data: {"random_state":SEED}
+        lr_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
         lr = Model(model_name="lr"
                    ,learner_class=LogisticRegression
                    ,instatiator_fn=lr_instantiator
@@ -347,7 +312,7 @@ class ArchitectureSuite:
         ) 
 
         
-        knn_instantiator = lambda meta_data: {}
+        knn_instantiator = lambda meta_data: {"n_jobs":-1}
         knn = Model(model_name="knn"
                    ,learner_class=KNeighborsClassifier
                    ,instatiator_fn=knn_instantiator
@@ -384,23 +349,22 @@ class ArchitectureSuite:
         ) 
 
 
-        rf_tpfn_instantiator = lambda meta_data: {"random_state":SEED
-                                               ,"categorical_features_indices":meta_data["cat_features_indices"]
-                                               , "ignore_pretraining_limits":True
-                                               ,"inference_config":{"SUBSAMPLE_SAMPLES": 10000}
-                                               ,"max_predict_time":60
-                                               ,"fit_nodes":True
-                                               ,"adaptive_tree":True
-                                            }
-           
-        rf_tpfn = Model(model_name="rf.tabpfn"
-                   ,learner_class=WrapRFTabPFNClassifier
-                   ,instatiator_fn=rf_tpfn_instantiator
+        tpfn_instantiator = lambda meta_data: {
+            "random_state":SEED,
+            "categorical_features_indices":meta_data["cat_features_indices"],
+            "ignore_pretraining_limits":True,
+            "inference_config": {"SUBSAMPLE_SAMPLES": 10000},
+            "fit_mode":"low_memory",
+            "memory_saving_mode":"auto",
+            "n_jobs":-1
+        }
+        tpfn = Model(model_name="tabpfn"
+                   ,learner_class=TabPFNClassifier
+                   ,instatiator_fn=tpfn_instantiator
                    ,fit_fn=md_std_fit
                    ,predict_prob_fn=md_std_predict_prob
                    ,pre_trained_model=True
         ) 
-        
 
         pp_std_fit = lambda learner, y_in, y_ta: learner.fit(y_in, y_ta)
         pp_std_predict_prob = lambda learner, y: learner.predict_proba(y)
@@ -436,19 +400,19 @@ class ArchitectureSuite:
             def __init__(self):
                 self.y_in = None
                 self.y_ta = None
-            def fit(self,learner,y_in,y_ta):
-                y_in = y_in.reshape(-1, 1)
+            
+            def fit(self, learner:VennAbersCalibrator, y_in:np.array ,y_ta:pd.Series) -> None:
                 y_in = np.concatenate([1 - y_in, y_in], axis=1)
                 self.y_in = y_in
                 self.y_ta = np.asarray(y_ta)
-            def predict_proba(self,learner,y):
-                y = y.reshape(-1, 1)
+
+            def predict_proba(self, learner:VennAbersCalibrator, y:np.array):
                 y = np.concatenate([1 - y, y], axis=1)
                 return learner.predict_proba(p_cal=self.y_in, y_cal=self.y_ta, p_test=y) 
         
-        va_instantiator = lambda meta_data: {}    
+        va_instantiator = lambda meta_data: {"random_state":SEED}    
         pp_va_fn = pp_va_fns()
-        #Referred to as manual Venn-ABERS calibration in the docs
+        #Referred to as manual Venn-ABERS calibration and Pre-fitted Venn-ABERS calibration in the docs
         venn_abers_calibration = PostProcessing(
             pp_name="venn_abers"
             ,learner_class = VennAbersCalibrator
@@ -467,25 +431,25 @@ class ArchitectureSuite:
         )
 
         models = [
-          svm,
-          lr,
-          knn,
-          rf,
-          cb,
-          xgb,
-          lgbm,
-        #  ttra,
-        #  rf_tpfn,
-          mlp
+         svm,
+         lr,
+         knn,
+         rf,
+         cb,
+         xgb,
+         lgbm,
+         ttra,
+         tpfn,
+         mlp
         ]
         
         phc = [
-         None,
-         platt_scaling,
-         isotonic_regression,
-         beta_calibration,
-         venn_abers_calibration,
-         pearsonify
+        None,
+        platt_scaling,
+        isotonic_regression,
+        beta_calibration,
+        venn_abers_calibration,
+        pearsonify
         ]
 
         for m in models:

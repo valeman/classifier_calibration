@@ -5,7 +5,6 @@ catboost==1.2.8
 lightgbm==4.6.0
 pytorch-tabular==1.1.1
 tabpfn==2.1.0
-tabpfn-extensions==0.0.4
 betacal==1.1.0
 venn-abers==1.4.6
 openml==0.15.1

@@ -116,6 +116,3 @@ def save_results_to_disk(results:dict, output_dir:str) -> None:
 
 
 
-def analyse_results(results:dict, output_dir:str) -> None:
-    raise NotImplementedError
-

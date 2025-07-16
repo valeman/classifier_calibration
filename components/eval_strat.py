@@ -33,7 +33,7 @@ class EvaluationStrategy:
             case _:
                 raise NotImplementedError
             
-    def run(self) -> list[dict]:
+    def run(self, arch:archs.Architecture) -> list[dict]:
         results = []
         process = psutil.Process()
         for x_train, y_train, x_test, y_test in self.gen_sets():
@@ -44,7 +44,7 @@ class EvaluationStrategy:
             cpu_fit_start = process.cpu_times()
             start_fit = time.perf_counter()
 
-            self.arch.fit(self.ds.meta_data, x_train, y_train)
+            arch.fit(self.ds.meta_data, x_train, y_train)
             
             end_fit = time.perf_counter()
             cpu_fit_end = process.cpu_times()
@@ -57,14 +57,14 @@ class EvaluationStrategy:
             cpu_pre_start = process.cpu_times()
             start_pre = time.perf_counter()
 
-            y_prob= self.arch.predict_prob(x_test)
+            y_prob = arch.predict_prob(x_test)
 
             end_pre = time.perf_counter()
             cpu_pre_end = process.cpu_times()
             _, peak_ram_pre = tracemalloc.get_traced_memory()
             tracemalloc.stop()
         
-            y_pred = self.arch.predict(y_prob=y_prob)
+            y_pred = arch.predict(y_prob=y_prob)
 
             perf_measures = self.p_measures.calc_perf(x_test, y_prob ,y_pred,np.asarray(y_test))
             perf_measures = self.log_computational_performance(perf_measures

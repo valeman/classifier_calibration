@@ -6,14 +6,12 @@ import components.architectures as archs
 import components.performance as perf
 import traceback
 
-
 study_version = "v.1"
 ds_suite_name = "Tabarena-v0.1-binary"
 eval_strat_name = "5-fold-CV"
 output_dir = "results"
 
 if __name__ == "__main__":
-
     cf.logger.info("Defining experiment")
     datasets = data.DatasetSuite(ds_suite_name)
     p_measures = perf.PerformanceMeasures(study_version)
@@ -22,9 +20,9 @@ if __name__ == "__main__":
     results = {}
 
     cf.logger.info("Starting experiment")
-    count = 0
     for ds in tqdm(datasets, desc="Dataset suite", unit="ds", total=datasets.n_datasets):
         tqdm.write(f"Dataset: {ds.df_name}")  
+
         cf.logger.info(f"Start common pre-processing")
         ds.convert_to_pandas()
         ds.pre_process("convert_unknown_to_nan") #Replace all "unknown" with nan
@@ -47,7 +45,7 @@ if __name__ == "__main__":
             cf.logger.info(f"Run evaluation")
             eval_strat = es.EvaluationStrategy(eval_strat_name, ds, p_measures)  
             try:
-                results[arch.name][ds.df_name] = eval_strat.run()
+                results[arch.name][ds.df_name] = eval_strat.run(arch)
 
             except Exception as err:
                 cf.logger.exception(f"Failed to evaluate {arch.name} on {ds.df_name}")
@@ -58,17 +56,8 @@ if __name__ == "__main__":
                 }
             cf.logger.info(f"End evaluation")
         
-        if count == 1:
-            break
-        count += 1
-    
     cf.logger.info("Experiment completed")
-        
+    
     cf.logger.info("Export results")
     perf.save_results_to_disk(results, output_dir)
     data.save_metadata_to_disk(datasets_metadata, output_dir)
-    
-
-    #cf.logger.info("Analyse results")
-    #perf.analyse_results(results, output_dir)
-    
