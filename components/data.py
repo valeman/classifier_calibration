@@ -174,22 +174,25 @@ class Dataset:
  
                 self.df[include_columns] = self.df[include_columns].fillna('NON')
             
-            case "clean_numerical": #only for cat columns object columns
+            case "clean_numerical": #Only for numeric columns with object dtype
                 # a) Ensure we’re working with str (e.g. to strip whitespace)
-                # b) Attempt to parse everything as float, unparseable → NaN
+                # b) Attempt to parse everything as float, unparseable → -1
                 # c) Downcast to the smallest float dtype (float32 or Int64 if possible) 
                         
                 for col in self.df[self.non_cat_columns].select_dtypes(include='object').columns:
-                    self.df[col] = pd.to_numeric(
+                    num = pd.to_numeric(
                         self.df[col].astype(str).str.strip()
                         ,errors='coerce'
                         ,downcast='float'
                     )
-                    
-                    if self.df[col].dropna().apply(float.is_integer).all():
+                    all_int = num.dropna().apply(float.is_integer).all()
+                    num = num.fillna(-1)
+                     
+                    if all_int:
                         # Cast to pandas nullable Int64
-                        self.df[col] = self.df[col].astype('Int64')
-
+                        self.df[col] = num.astype('Int64')
+                    else:
+                        self.df[col] = num
             case _:
                 raise NotImplementedError
             

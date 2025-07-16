@@ -36,7 +36,7 @@ class PerformanceMeasures:
         Returns:
             dict: Key: name of performance measure, Value: The calculated value of the measure
         """
-        
+        self.qc_binary_input(x_test, y_prob, y_pred, y_test)
         perf_measures = {}
         for measure,function in self.measure_functions.items():
             perf_measures[measure] = function(x_test, y_prob ,y_pred, y_test)
@@ -97,7 +97,54 @@ class PerformanceMeasures:
         self.measure_functions["eci_global"] = lambda     x_test, y_prob ,y_pred, y_test: calfram_measures("eci_global", y_test, y_prob, y_pred)
         self.measure_functions["eci_balance"] = lambda    x_test, y_prob ,y_pred, y_test: calfram_measures("eci_balance", y_test, y_prob, y_pred)
         self.measure_functions["ece_freq"] = lambda       x_test, y_prob ,y_pred, y_test: calfram_measures("ece_freq", y_test, y_prob, y_pred)
+    
+    
+    def qc_binary_input(self,
+                        x_test: pd.DataFrame,
+                        y_prob: np.ndarray,
+                        y_pred: np.ndarray,
+                        y_test: np.ndarray) -> None:
+        """
+        Quality check inputs for a binary classifier.
 
+        Checks:
+        1. All inputs have the same length n.
+        2. y_prob, y_pred, y_test are 1-D arrays of length n.
+        3. y_prob values are all in [0, 1].
+        4. y_pred and y_test values are only 0 or 1.
+
+        Raises:
+        TypeError:   if any of y_* isn't a 1-D numpy array or x is not a pandas dataframe.
+        ValueError:  if lengths mismatch or values fall outside allowed ranges.
+        """
+        # 1) + 2) Length and type checks
+        n = len(x_test)
+        if not isinstance(x_test, pd.DataFrame):
+            raise TypeError(f"x_test must be a pandas DataFrame, got {type(x_test)}")
+
+        for name, arr in (("y_prob", y_prob), ("y_pred", y_pred), ("y_test", y_test)):
+            if not isinstance(arr, np.ndarray):
+                raise TypeError(f"{name} must be a numpy.ndarray, got {type(arr)}")
+            if arr.ndim != 1:
+                raise ValueError(f"{name} must be 1-D, but has shape {arr.shape}")
+            if arr.shape[0] != n:
+                raise ValueError(f"Length mismatch: len(x_test)={n} but {name}.shape[0]={arr.shape[0]}")
+
+        # 3) Probability range check
+        if not np.all((y_prob >= 0) & (y_prob <= 1)):
+            bad_idx = np.where((y_prob < 0) | (y_prob > 1))[0]
+            raise ValueError(f"y_prob contains values outside [0,1] at indices {bad_idx.tolist()}")
+
+        # 4) Binary‐label checks
+        for name, arr in (("y_pred", y_pred), ("y_test", y_test)):
+            unique_vals = np.unique(arr)
+            bad = set(unique_vals) - {0, 1}
+            if bad:
+                raise ValueError(f"{name} contains non‐binary values {bad}; only {{0,1}} allowed")
+
+      
+
+        
 
 def save_results_to_disk(results:dict, output_dir:str) -> None:
     """
