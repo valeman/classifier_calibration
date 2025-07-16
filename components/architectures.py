@@ -27,7 +27,7 @@ class WrapTabTransformer:
     """
     The TabTransformer class wraps the TabTransformer implementation of pytorch-tabular to provide a standard API
     """
-    def __init__(self, random_state:int, continuous_cols:list[str], categorical_cols:list[str]):
+    def __init__(self, num_workers:int, random_state:int, continuous_cols:list[str], categorical_cols:list[str]):
         self.random_state = random_state
         model_config = TabTransformerConfig(
             task="classification"        
@@ -37,6 +37,7 @@ class WrapTabTransformer:
             target=["target"],
             continuous_cols=continuous_cols,
             categorical_cols=categorical_cols,
+            num_workers=num_workers
         )
         trainer_config = TrainerConfig(
             auto_lr_find=True,
@@ -338,6 +339,7 @@ class ArchitectureSuite:
         ) 
 
         ttra_instantiator = lambda meta_data: {"random_state":SEED
+                                               ,"num_workers":127
                                                , "continuous_cols":meta_data["non_cat_features"]
                                               , "categorical_cols":meta_data["cat_features"]
                                             }
