@@ -1,28 +1,28 @@
 from sklearn.model_selection import StratifiedKFold
 from typing import Generator
-import components.config as cf 
-import components.data as data
-import components.architectures as archs
-import components.performance as perf
+from components.data import Dataset 
+from components.architectures import Architecture
+from components.performance import PerformanceMeasures
+import components.utils as util
 import pandas as pd
 import numpy as np
 import tracemalloc
+import logging
 import psutil
 import time
 import gc
 
-SEED = cf.SEED
-
+lg = logging.getLogger(__name__)
 
 class EvaluationStrategy:
     """
     The EvaluationStrategy standardizes the evaluation of an Architecture using a defined evaluation strategy and performance measurements. 
     """
-    def __init__(self, strategy:str, ds:data.Dataset, p_measures:perf.PerformanceMeasures):
+    def __init__(self, strategy:str, ds:Dataset, p_measures:PerformanceMeasures, random_seed:int=123):
         self.strategy = strategy
         self.ds = ds
         self.p_measures = p_measures
-        
+        self.random_seed = random_seed
         self.gen_sets = None
         match strategy:
             case "5-fold-CV":
@@ -30,11 +30,13 @@ class EvaluationStrategy:
             case _:
                 raise NotImplementedError
             
-    def run(self, arch:archs.Architecture) -> list[dict]:
+    def run(self, arch:Architecture) -> list[dict]:
         results = []
         process = psutil.Process()
+        count = 0
         for x_train, y_train, x_test, y_test in self.gen_sets():
-            
+            lg.info(f"Start run {count}")
+            run_start = time.perf_counter()
             gc.collect()
             tracemalloc.start()
             cpu_fit_start = process.cpu_times()
@@ -74,14 +76,17 @@ class EvaluationStrategy:
                                                                , peak_ram_fit
                                                                , peak_ram_pre
             )
+
             
             
             perf_measures["status"]= "success"
             results.append(perf_measures)
-            
+            run_end = time.perf_counter()
+            lg.info(f"End run {count}. Wall time spent: {util.format_time(run_end - run_start)}")
+            count += 1
         return results
     
-    def k_fold_CV(self, ds:data.Dataset, k=5)-> Generator[tuple[pd.DataFrame],None,None]:
+    def k_fold_CV(self, ds:Dataset, k=5)-> Generator[tuple[pd.DataFrame],None,None]:
         """
         Implements k-fold cross validation.  
         Outer heldout fold is test set, remaining is the training set. 
@@ -91,7 +96,7 @@ class EvaluationStrategy:
         to it's relative empirical frequency.
 
         Args:
-            ds (data.Dataset): A tabular dataset
+            ds (Dataset): A tabular dataset
         
         Yields:
             Generator[tuple[pd.DataFrame]]: A generator yielding the sets: x_train, y_train, x_test, y_test
@@ -106,7 +111,7 @@ class EvaluationStrategy:
 
         def gen_sets():
             # Stratified split
-            cv = StratifiedKFold(n_splits=k, shuffle=True, random_state=SEED)
+            cv = StratifiedKFold(n_splits=k, shuffle=True, random_state=self.random_seed)
             for train_idx, test_idx in cv.split(X, y):
                 X_train = X.iloc[train_idx].reset_index(drop=True)
                 y_train = y.iloc[train_idx].reset_index(drop=True)

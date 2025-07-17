@@ -1,27 +1,9 @@
+import components.utils as util
 import pandas as pd
 import numpy as np
 import openml
-import os
-import json
-import components.config as cf
-
-SEED = cf.SEED
 
 
-def save_metadata_to_disk(datasets_md:dict, output_dir:str) -> None:
-    """
-    Save the meta_data dicts to datasets_md.txt in the given directory 
-    under the current working directory
-
-    Args:
-        datasets_md (dict)
-        output_dir (str): Example: "results" 
-    """
-    output_dir = os.path.join(os.getcwd(), output_dir)
-    os.makedirs(output_dir, exist_ok=True)
-    filename = os.path.join(output_dir, "datasets_md.txt")
-    with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(datasets_md, f, ensure_ascii=False, indent=2)
 
 def get_openml_task(taskid:int)-> tuple[pd.DataFrame,list]:
     """
@@ -40,7 +22,7 @@ def get_openml_task(taskid:int)-> tuple[pd.DataFrame,list]:
     return df, cat_columns  
 
 
-def detect_categorical_columns(df:pd.DataFrame, sample_size:int = 100, fail_threshold:float = 0.5) -> list:
+def detect_categorical_columns(df:pd.DataFrame, sample_size:int = 100, fail_threshold:float = 0.5, random_seed:int=123) -> list:
     """
     Detect object columns that are likely categorical by sampling values
     and attempting to convert to float.
@@ -50,7 +32,7 @@ def detect_categorical_columns(df:pd.DataFrame, sample_size:int = 100, fail_thre
         sample_size (int, optional):  maximum number of non-null values to sample per column. Defaults to 100.
         fail_threshold (float, optional): proportion of failed conversions above which
                       the column is considered categorical. Defaults to 0.5.
-
+        random_seed (int): A random seed
     Returns:
         list: List of column names likely to be categorical
     """
@@ -63,7 +45,7 @@ def detect_categorical_columns(df:pd.DataFrame, sample_size:int = 100, fail_thre
             continue
         
         # sample up to sample_size values
-        sample = vals.sample(n=min(len(vals), sample_size), random_state=SEED)
+        sample = vals.sample(n=min(len(vals), sample_size), random_state=random_seed)
         
         # try converting each to float
         fail_count = 0
@@ -115,19 +97,21 @@ class Dataset:
     Also includes select functionality on dataframes. 
     """
 
-    def __init__(self, df:None, df_name:str, meta_data:dict):
+    def __init__(self, df:None, df_name:str, meta_data:dict, random_seed:int=123):
         """
         Args:
             df (None): Any data structure representing a tabular dataset such as a pandas dataframe.
             df_name (str): The name of the dataset.
             meta_data (dict): All meta data such as Categorical columns, The target column etc. .
+            random_seed (int=): A random seed.
         """
         self.df = df
         self.df_name = df_name
+        self.random_seed = random_seed
         self.meta_data = meta_data
         self.meta_data["n_columns"] = len(self.df.columns)
         self.meta_data["n_rows"] = len(self.df)
-    
+
     @property
     def non_cat_columns(self) -> list[str]:
         """
@@ -148,11 +132,11 @@ class Dataset:
         Pre processing in general should be architecture specific.
         Args:
             method (str): How to pre process self.df
-
         """
+
         match method:
             case "detect_categorical":
-                detected_cat_cols = detect_categorical_columns(self.df[self.non_cat_columns])
+                detected_cat_cols = detect_categorical_columns(self.df[self.non_cat_columns], random_seed=self.random_seed)
                 self._update_categorial_meta_data(detected_cat_cols)
                 
             case "encode_categoricals":
@@ -163,16 +147,19 @@ class Dataset:
             case "convert_unknown_to_nan":
                 self.df.replace(r"(?i)^unknown$", np.nan, regex=True, inplace=True)
 
-            case "convert_nan_to_'NON'": #only for cat columns
+            case "convert_nan_to_unique_val": #only for cat columns
                 include_columns = self.meta_data["cat_columns"]
-
+                
                 for col in include_columns:
+                    uniques = self.df[col].dropna().unique()
+                    n_unique = util.get_unique_id(uniques, pre_fix="nan_", random_seed=self.random_seed)
+                    
                     if pd.api.types.is_categorical_dtype(self.df[col]):
-                    # Add NON to the category if it's not already there
-                        if 'NON' not in self.df[col].cat.categories:
-                            self.df[col] = self.df[col].cat.add_categories(['NON'])
- 
-                self.df[include_columns] = self.df[include_columns].fillna('NON')
+                    # Add n_unique to the category if it's not already there
+                        if n_unique not in self.df[col].cat.categories:
+                            self.df[col] = self.df[col].cat.add_categories([n_unique])
+                    #Convert nan to new unique_str_val
+                    self.df[col] = self.df[col].fillna(n_unique)
             
             case "clean_numerical": #Only for numeric columns with object dtype
                 # a) Ensure we’re working with str (e.g. to strip whitespace)
@@ -185,14 +172,17 @@ class Dataset:
                         ,errors='coerce'
                         ,downcast='float'
                     )
+                    
                     all_int = num.dropna().apply(float.is_integer).all()
-                    num = num.fillna(-1)
-                     
                     if all_int:
                         # Cast to pandas nullable Int64
                         self.df[col] = num.astype('Int64')
                     else:
                         self.df[col] = num
+
+            case "convert_nan_to_-1": #Only for numerical columns
+                self.df[self.non_cat_columns] = self.df[self.non_cat_columns].fillna(-1) 
+
             case _:
                 raise NotImplementedError
             
@@ -236,14 +226,16 @@ class DatasetSuite:
     The DatasetSuite class retrieves a collection of datasets (a suite) and returns each dataset iteratively. 
     """
 
-    def __init__(self, suite_name:str):
+    def __init__(self, suite_name:str, random_seed:int=123):
         """
         Args:
             suite_name (str): The name of the dataset suite
+            random_seed (int): A random seed.
         """
         self.suite_name = suite_name
         self.dataset_suite = None
         self.n_datasets = None
+        self.random_seed=random_seed
 
         match suite_name:
             case "Tabarena-v0.1-class":
@@ -299,6 +291,7 @@ class DatasetSuite:
 
         dataset = Dataset(df = df
                         ,df_name = name
+                        ,random_seed=self.random_seed
                         ,meta_data = {"source":"openml"
                                         ,"target":target
                                         ,"cat_columns":cat_columns
