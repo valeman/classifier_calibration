@@ -1,11 +1,10 @@
 from pycaleva import CalibrationEvaluator
 from calfram.calibration_framework import CalibrationFramework
-import components.config as config 
+from components.utils import all_numbers_and_finite
 import sklearn.metrics as skm 
 import pandas as pd
 import numpy as np
-import json
-import os
+
 
 class PerformanceMeasures:
     """
@@ -60,16 +59,17 @@ class PerformanceMeasures:
         ce = lambda y_test, y_prob: CalibrationEvaluator(y_test, y_prob, outsample=True)
         
         self.measure_functions["brier_score"] = lambda                x_test, y_prob ,y_pred, y_test:  ce(y_test, y_prob).brier
-        self.measure_functions["spiegelhalter_z_statistic"] = lambda  x_test, y_prob ,y_pred, y_test:  ce(y_test, y_prob).z_test().statistic
+        self.measure_functions["spiegelhalter_z_statistic"] = lambda  x_test, y_prob ,y_pred, y_test:  np.clip(ce(y_test, y_prob).z_test().statistic, a_min=-12, a_max=12)
         self.measure_functions["log_loss"] = lambda                   x_test, y_prob ,y_pred, y_test:  skm.log_loss(y_test, y_prob, normalize=True)
 
         self.measure_functions["auc_roc"] = lambda    x_test, y_prob ,y_pred, y_test:   ce(y_test, y_prob).auroc
 
         self.measure_functions["accuracy"] = lambda   x_test, y_prob ,y_pred, y_test:   skm.accuracy_score(y_test, y_pred, normalize=True) 
+        self.measure_functions["recall_1"] = lambda     x_test, y_prob ,y_pred, y_test:   skm.recall_score(y_test, y_pred,pos_label=1, average='binary')
+        self.measure_functions["recall_0"] = lambda     x_test, y_prob ,y_pred, y_test:   skm.recall_score(y_test, y_pred,pos_label=0, average='binary')
         self.measure_functions["f1_score"] = lambda   x_test, y_prob ,y_pred, y_test:   skm.f1_score(y_test, y_pred, pos_label=1, average='binary')
         self.measure_functions["precision"] = lambda  x_test, y_prob ,y_pred, y_test:   skm.precision_score(y_test, y_pred, pos_label=1, average='binary')
-        self.measure_functions["recall"] = lambda     x_test, y_prob ,y_pred, y_test:   skm.recall_score(y_test, y_pred,pos_label=1, average='binary')
-
+        
         def calfram_measures(measure_name, y_test, y_prob, y_pred):
             #Convert shape: (n,) to shape: (n, 2)
             if y_prob.ndim == 1:
@@ -84,14 +84,15 @@ class PerformanceMeasures:
         
             measures, _ = caf.calibrationdiagnosis(classes_scores, adaptive=True #automatic monotonic sweep method
             )
+            class_wise_metrics = caf.classwise_calibration(measures)
             measure = None
             match measure_name:
                 case "eci_global":
-                    measure = measures["1"]["ec_g"] # ECI_global, class 1
+                    measure = class_wise_metrics["ec_g"] # ECI_global
                 case "eci_balance":
-                    measure = measures["1"]["ec_dir"] # ECI_balance, class 1
+                    measure = class_wise_metrics["ec_dir"] # ECI_balance
                 case "ece_freq":
-                     measure = measures["1"]["ece_fp"] #ECE_frequency, class 1 
+                     measure = class_wise_metrics["ece_freq"] #ECE_frequency 
             return measure
         
         self.measure_functions["eci_global"] = lambda     x_test, y_prob ,y_pred, y_test: calfram_measures("eci_global", y_test, y_prob, y_pred)
@@ -109,7 +110,7 @@ class PerformanceMeasures:
 
         Checks:
         1. All inputs have the same length n.
-        2. y_prob, y_pred, y_test are 1-D arrays of length n.
+        2. y_prob, y_pred, y_test are 1-D arrays of length n with numbers.
         3. y_prob values are all in [0, 1].
         4. y_pred and y_test values are only 0 or 1.
 
@@ -129,6 +130,8 @@ class PerformanceMeasures:
                 raise ValueError(f"{name} must be 1-D, but has shape {arr.shape}")
             if arr.shape[0] != n:
                 raise ValueError(f"Length mismatch: len(x_test)={n} but {name}.shape[0]={arr.shape[0]}")
+            if not all_numbers_and_finite(arr):
+                raise TypeError(f"All elements in {name} must be integers or floats")
 
         # 3) Probability range check
         if not np.all((y_prob >= 0) & (y_prob <= 1)):
@@ -141,25 +144,4 @@ class PerformanceMeasures:
             bad = set(unique_vals) - {0, 1}
             if bad:
                 raise ValueError(f"{name} contains non‐binary values {bad}; only {{0,1}} allowed")
-
-      
-
-        
-
-def save_results_to_disk(results:dict, output_dir:str) -> None:
-    """
-    Save the results dict to results.txt in the given directory 
-    under the current working directory
-
-    Args:
-        results (dict)
-        output_dir (str): Example: "results" 
-    """
-    output_dir = os.path.join(os.getcwd(), output_dir)
-    os.makedirs(output_dir, exist_ok=True)
-    filename = os.path.join(output_dir, "results.txt")
-    with open(filename, 'w', encoding='utf-8') as f:
-        json.dump(results, f, ensure_ascii=False, indent=2)
-
-
 
