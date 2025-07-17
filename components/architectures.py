@@ -15,19 +15,26 @@ from tabpfn import TabPFNClassifier
 from betacal import BetaCalibration
 from venn_abers import VennAbersCalibrator
 import pearsonify as pear
-import components.config as cf
+import logging 
 import numpy as np 
 import pandas as pd
-import os
 
-SEED = cf.SEED
-os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1") #Unsafe. Do not do this in prod.
+lg = logging.getLogger(__name__)
 
 class WrapTabTransformer:
     """
     The TabTransformer class wraps the TabTransformer implementation of pytorch-tabular to provide a standard API
     """
-    def __init__(self, num_workers:int, random_state:int, continuous_cols:list[str], categorical_cols:list[str]):
+    def __init__(self, num_workers:int
+            , random_state:int
+            , continuous_cols:list[str]
+            , categorical_cols:list[str]
+            , auto_lr_find:bool=True
+            , batch_size:int=1024
+            , max_epochs:int=20
+            , devices:int=-1
+            , verbose:bool = False
+            ):
         self.random_state = random_state
         model_config = TabTransformerConfig(
             task="classification"        
@@ -40,10 +47,10 @@ class WrapTabTransformer:
             num_workers=num_workers
         )
         trainer_config = TrainerConfig(
-            auto_lr_find=True,
-            batch_size=1024,
-            max_epochs=20,
-            devices=-1,
+            auto_lr_find=auto_lr_find,
+            batch_size=batch_size,
+            max_epochs=max_epochs,
+            devices=devices,
         )
         optimizer_config = OptimizerConfig()
         
@@ -52,6 +59,7 @@ class WrapTabTransformer:
             ,model_config=model_config
             ,optimizer_config=optimizer_config
             ,trainer_config=trainer_config
+            ,verbose=verbose
         )
     
     def fit(self,x:pd.DataFrame,y:pd.Series) -> None:
@@ -76,10 +84,14 @@ class WrapPearsonify:
         
     def fit(self,y_instance:np.array, y_target:pd.Series) -> None:
         y_target = np.asarray(y_target)
+        y_instance = y_instance.reshape(-1,)  
+        y_target = y_target.reshape(-1,)
         residuals = pear.utils.compute_pearson_residuals(y_target, y_instance)
         self.q_alpha = np.quantile(np.abs(residuals), 1 - self.alpha)
         
+
     def predict_proba(self, y:np.array) -> np.array:
+        y = y.reshape(-1,)
         lower_bounds, upper_bounds = pear.utils.compute_confidence_intervals(
             y, self.q_alpha
         )
@@ -114,7 +126,7 @@ class PostProcessing:
         self._predict_prob_fn = predict_prob_fn
     
     def instantiate(self, meta_data:dict) -> None:
-        cf.logger.info(f"Post-processing:{self.pp_name} instantiated with:{self.instatiator_fn(meta_data)}")
+        lg.info(f"Post-processing:{self.pp_name} instantiated with:{self.instatiator_fn(meta_data)}")
         self.learner = self.learner_class(**self.instatiator_fn(meta_data))
 
     def fit(self, y_instance:np.array, y_target:pd.Series) -> None:
@@ -138,7 +150,7 @@ class Model:
         self._predict_prob_fn = predict_prob_fn
     
     def instantiate(self, meta_data:dict) -> None:
-        cf.logger.info(f"Model:{self.model_name} instantiated with:{self.instatiator_fn(meta_data)}")
+        lg.info(f"Model:{self.model_name} instantiated with:{self.instatiator_fn(meta_data)}")
         self.learner = self.learner_class(**self.instatiator_fn(meta_data))
 
     def fit(self, x:pd.DataFrame, y:pd.Series) -> None:
@@ -157,11 +169,13 @@ class Architecture:
                  ,model:Model
                  ,calibration_set=False
                  ,post_processing:PostProcessing=None
+                 ,random_seed:int=123
         ):
         self.name = name
         self.model = model
         self.calibration_set = calibration_set
         self.post_processing = post_processing
+        self.random_seed = random_seed
         
     def fit(self, meta_data:dict
             , x_train:pd.DataFrame
@@ -177,7 +191,7 @@ class Architecture:
                 ,stratify=y_train
                 ,shuffle=True
                 ,train_size=0.8
-                ,random_state=SEED
+                ,random_state=self.random_seed
             )
 
         self.model.instantiate(meta_data)
@@ -228,11 +242,11 @@ class ArchitectureSuite:
     The ArchitectureSuite class defines a collection of architectures (a suite) and returns each achitecture iteratively.
     All architectures are wrapped around the architecture class to provide a standard API. 
     """
-    def __init__(self, suite_name:str):
+    def __init__(self, suite_name:str, random_seed:int=123):
         self.suite_name = suite_name
         self.architectures = []
         self.n_architectures = None
-
+        self.random_seed = random_seed
         match suite_name:
             case "v.1":
                 self.init_v1()
@@ -263,6 +277,7 @@ class ArchitectureSuite:
             "venn_abers": Venn-abers 
             "pearsonify": Pearsonify
         """
+        SEED = self.random_seed
         archs = []
 
         md_std_fit = lambda learner, x, y: learner.fit(x, y)
@@ -339,10 +354,16 @@ class ArchitectureSuite:
         ) 
 
         ttra_instantiator = lambda meta_data: {"random_state":SEED
-                                               ,"num_workers":127
-                                               , "continuous_cols":meta_data["non_cat_features"]
-                                              , "categorical_cols":meta_data["cat_features"]
-                                            }
+                                                ,"num_workers":10
+                                                , "continuous_cols":meta_data["non_cat_features"]
+                                                , "categorical_cols":meta_data["cat_features"]
+                                                , "auto_lr_find":False
+                                                , "batch_size":1024
+                                                , "max_epochs":20
+                                                , "devices":-1
+                                                , "verbose":False
+        }
+        
         ttra = Model(model_name="ttra"
                    ,learner_class=WrapTabTransformer
                    ,instatiator_fn=ttra_instantiator
@@ -457,13 +478,14 @@ class ArchitectureSuite:
         for m in models:
             for p in phc:
                 if p is None:
-                    archs.append(Architecture(name=m.model_name ,model=m))
+                    archs.append(Architecture(name=m.model_name ,model=m, random_seed=SEED))
                 else:
                     archs.append(Architecture(
                         name=f"{m.model_name}.{p.pp_name}"
                         ,model=m
                         ,calibration_set=True
                         ,post_processing=p
+                        ,random_seed=SEED
                     ))
                     
         self.n_architectures = len(archs)
