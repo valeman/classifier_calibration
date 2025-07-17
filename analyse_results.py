@@ -1,5 +1,8 @@
 import os
 import json
+import numpy as np
+import components.utils as util
+
 
 output_dir = "results"
 
@@ -54,7 +57,8 @@ def sanity_checks() -> dict:
         ,"accuracy":between_0_1
         ,"f1_score":between_0_1
         ,"precision":between_0_1
-        ,"recall":between_0_1
+        ,"recall_1":between_0_1
+        ,"recall_0":between_0_1
         ,"brier_score":greater_then_0
         ,"log_loss":greater_then_0
         ,"auc_roc":greater_then_0
@@ -75,8 +79,6 @@ def qc_input(res:dict, md:dict) -> None:
     scs = sanity_checks()
     for arch, dss in res.items():
         for ds, runs in dss.items():
-            if isinstance(runs,dict): #TODO:REMOVE
-                runs = [runs]
             for i, run in enumerate(runs):
              
                 status = run.get("status", "failed")
@@ -84,16 +86,12 @@ def qc_input(res:dict, md:dict) -> None:
                     err_msg = run.get("error_message", "<no message>")
                     print(f"{arch} failed during run {i} on {ds}: {err_msg}")
                     continue
-                
-                run.pop("total_ram_architecture_mb") #TODO:REMOVE
 
                 for measure, value in run.items():
                     if measure in ["status", "error_message", "trace"]:
                         continue
-                    try:
-                        float(value)
-                    except ValueError:
-                        print(f"ValueError: Run {i} ({arch} on {ds}): cannot convert {measure!r}={value!r} to float")      
+                    if not util.all_numbers_and_finite(np.asarray([value])):
+                        print(f"ValueError: Run {i} ({arch} on {ds}): {measure!r}={value!r} is not a finite number")      
                     
                     eval = scs[measure](value)
                     if eval:
@@ -101,6 +99,31 @@ def qc_input(res:dict, md:dict) -> None:
                 
 
 def analyse_results(res:dict, md:dict) -> dict:
+    """
+    I have dataset metadata (md), and performance measures per architecture, dataset and run (res).
+
+    1. Average out measures across runs. Gives Expectation in measure value on OOS instances, given dataset and architecture.
+        sum cpu time
+
+	2. Rank absolute calibration performance rating by ECI global,log-loss,brier cal aggregate and comp cost  of each architecture across all datasets 
+        Ranking pre-averaging. 
+        Display average comp cost of each arch scaled by n_train, n_test across datasets.
+        Highlight average comp cost across runs for a small, medium and large dataset per arch. 
+
+	3. Rank marginal calibration performance rating by  ECI global,log-loss and brier  of each post-hoc method across all datasets
+			Did any degrade calibration?
+
+            post-hoc method rating grouped by model across datasets marginal
+					Which is best with respect to the model across datasets
+
+			post-hoc method rating across datasets and models marginal
+					which is best across models and datasets
+							
+	4. See if post-hoc calibration degrades overall performance. 
+        Did any calibraiton methods degrade other metrics?
+    
+    Dump averages per dataset to appendix    
+    """  
     raise NotImplementedError
 
 
@@ -109,10 +132,12 @@ def export_analysis(ana, output_dir):
 
 
 if __name__ == "__main__":
-    res = load_dict(output_dir, "results_v1.txt")
-    md = load_dict(output_dir, "datasets_md_v1.txt")
+    res = load_dict(output_dir, "results.txt")
+    md = load_dict(output_dir, "datasets_md.txt")
     
     qc_input(res, md)
 
     #ana = analyse_results(res, md)
     #export_analysis(ana, output_dir)
+
+    
