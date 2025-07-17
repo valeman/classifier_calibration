@@ -1,11 +1,11 @@
 from components.log_config import configure_logger, log_progress_snapshot 
-from components.eval_strat import EvaluationStrategy
 from components.performance import PerformanceMeasures
 from components.architectures import ArchitectureSuite
+from components.eval_strat import EvaluationStrategy
 from components.data import DatasetSuite
+import os, traceback, time, random, torch
 import components.utils as util
 import numpy as np
-import os, traceback, time, random, torch
 
 
 SEED = 123456789
@@ -40,6 +40,8 @@ if __name__ == "__main__":
             lg.info(f"{ds_desc}")  
             
             lg.info(f"Start common pre-processing")
+            ds.convert_to_pandas()
+            ds.df = ds.df.sample(1500) #TODO:REMOVE
             ds.pre_process("detect_categorical") #Tag object columns as categorical
             ds.pre_process("convert_nan_to_unique_val") #Replace nan in cat columns with a new uniqe value
             ds.pre_process("encode_categoricals") #To {0,1} if binary else {1,2,3,...}
@@ -76,8 +78,11 @@ if __name__ == "__main__":
             
             task = progress.tasks[inner]
             lg.info(f"All evaluations on {ds.df_name} ended. Wall time spent: {util.format_time(task.elapsed)}")
-            progress.remove_task(inner)    
-            
+            progress.remove_task(inner) 
+               
+            if ds.df_name == "APSFailure":
+                break #TODO: REMOVE
+
     progress.remove_task(outer)   
     lg.info("Experiment completed")
     
