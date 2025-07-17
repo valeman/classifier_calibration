@@ -1,4 +1,4 @@
-calfram @ git+https://github.com/danielftg/CalFram.git@073cf7492c2147ab1a6c4a33c8118beb705b8a39
+calfram @ git+https://github.com/danielftg/CalFram.git@4084cddd851ff5ea6fea4cb411b41ffed7a4635d
 pearsonify @ git+https://github.com/xRiskLab/pearsonify.git@b4d208b05f16dfd4dc33aa085d17ec6b0ec00878
 xgboost==3.0.2 
 catboost==1.2.8
