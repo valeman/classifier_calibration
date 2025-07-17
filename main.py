@@ -1,63 +1,88 @@
-from tqdm import tqdm
-import components.config as cf 
-import components.data as data
-import components.eval_strat as es
-import components.architectures as archs
-import components.performance as perf
-import traceback
+from components.log_config import configure_logger, log_progress_snapshot 
+from components.eval_strat import EvaluationStrategy
+from components.performance import PerformanceMeasures
+from components.architectures import ArchitectureSuite
+from components.data import DatasetSuite
+import components.utils as util
+import numpy as np
+import os, traceback, time, random, torch
 
-study_version = "v.1"
+
+SEED = 123456789
+os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1") #Unsafe. Don't do this in prod.
 ds_suite_name = "Tabarena-v0.1-binary"
 eval_strat_name = "5-fold-CV"
+study_version = "v.1"
 output_dir = "results"
 
+os.environ['PYTHONHASHSEED'] = str(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
+
 if __name__ == "__main__":
-    cf.logger.info("Defining experiment")
-    datasets = data.DatasetSuite(ds_suite_name)
-    p_measures = perf.PerformanceMeasures(study_version)
-    architectures = archs.ArchitectureSuite(study_version)
+    lg, progress = configure_logger()
+
+    lg.info("Defining experiment")
+    datasets = DatasetSuite(ds_suite_name, random_seed=SEED)
+    p_measures = PerformanceMeasures(study_version)
+    architectures = ArchitectureSuite(study_version, random_seed=SEED)
     datasets_metadata = {}
     results = {}
 
-    cf.logger.info("Starting experiment")
-    for ds in tqdm(datasets, desc="Dataset suite", unit="ds", total=datasets.n_datasets):
-        tqdm.write(f"Dataset: {ds.df_name}")  
+    lg.info("Starting experiment")
+    with progress:
+        outer = progress.add_task("", total=datasets.n_datasets)
 
-        cf.logger.info(f"Start common pre-processing")
-        ds.convert_to_pandas()
-        ds.pre_process("convert_unknown_to_nan") #Replace all "unknown" with nan
-        ds.pre_process("detect_categorical") #Tag object columns as categorical
-        ds.pre_process("convert_nan_to_'NON'") #Replace nan in cat columns with "non"
-        ds.pre_process("encode_categoricals") 
-        ds.pre_process("clean_numerical") #Ensure non-cat object columns only contain numbers.
-        cf.logger.info(f"End common pre-processing")
-        
-        datasets_metadata[ds.df_name] = ds.meta_data
-
-        for arch in tqdm(architectures, desc="Architecture suite", unit="arch", total=architectures.n_architectures, leave=False):
-            arch_desc = f"Architecture: {arch.name}"
-            tqdm.write(arch_desc)
-
-            cf.logger.info(f"Evaluate Architecture:{arch.name}")
-            if arch.name not in results.keys():
-                results[arch.name] = {}
+        for ds_idx, ds in enumerate(datasets, start=1):
+            ds_desc = f"Dataset {ds_idx}/{datasets.n_datasets}: {ds.df_name}"
+            progress.update(outer, description=f"[bold blue]{ds_desc}", advance=1)
+            lg.info(f"{ds_desc}")  
             
-            cf.logger.info(f"Run evaluation")
-            eval_strat = es.EvaluationStrategy(eval_strat_name, ds, p_measures)  
-            try:
-                results[arch.name][ds.df_name] = eval_strat.run(arch)
+            lg.info(f"Start common pre-processing")
+            ds.pre_process("detect_categorical") #Tag object columns as categorical
+            ds.pre_process("convert_nan_to_unique_val") #Replace nan in cat columns with a new uniqe value
+            ds.pre_process("encode_categoricals") #To {0,1} if binary else {1,2,3,...}
+            ds.pre_process("clean_numerical") #Ensure non-cat object columns only contain numbers.
+            ds.pre_process("convert_nan_to_-1") #Fill nan in numeric features with -1
+            lg.info(f"End common pre-processing")
+            datasets_metadata[ds.df_name] = ds.meta_data
 
-            except Exception as err:
-                cf.logger.exception(f"Failed to evaluate {arch.name} on {ds.df_name}")
-                results[arch.name][ds.df_name] = {
-                    "status": "failed"
-                    ,"error_message": str(err)
-                    ,"trace": traceback.format_exc()
-                }
-            cf.logger.info(f"End evaluation")
-        
-    cf.logger.info("Experiment completed")
+            inner = progress.add_task("", total=architectures.n_architectures)
+            
+            for arch_idx,arch in enumerate(architectures, start=1):
+                arch_desc = f"Architecture {arch_idx}/{architectures.n_architectures}: {arch.name}"
+                progress.update(inner,description=f"[green]{arch_desc}",advance=1)
+                log_progress_snapshot(progress)
+
+                if arch.name not in results.keys():
+                    results[arch.name] = {}
+                
+                lg.info(f"Start evaluation")
+                start_eval = time.perf_counter()
+                eval_strat = EvaluationStrategy(eval_strat_name, ds, p_measures, random_seed=SEED)  
+                try:
+                    results[arch.name][ds.df_name] = eval_strat.run(arch)
+
+                except Exception as err:
+                    lg.exception(f"Failed to evaluate {arch.name} on {ds.df_name}")
+                    results[arch.name][ds.df_name] = [{
+                        "status": "failed"
+                        ,"error_message": str(err)
+                        ,"trace": traceback.format_exc()
+                    }]
+                end_eval = time.perf_counter()
+                lg.info(f"End evaluation of {arch.name}. Wall time spent: {util.format_time(end_eval - start_eval)}")
+            
+            task = progress.tasks[inner]
+            lg.info(f"All evaluations on {ds.df_name} ended. Wall time spent: {util.format_time(task.elapsed)}")
+            progress.remove_task(inner)    
+            
+    progress.remove_task(outer)   
+    lg.info("Experiment completed")
     
-    cf.logger.info("Export results")
-    perf.save_results_to_disk(results, output_dir)
-    data.save_metadata_to_disk(datasets_metadata, output_dir)
+    lg.info("Export results")
+    util.save_dict_to_disk(results, output_dir, "results.txt")
+    util.save_dict_to_disk(datasets_metadata, output_dir, "dataset_md.txt")
+    
+    
