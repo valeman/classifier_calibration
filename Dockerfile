@@ -4,9 +4,6 @@ FROM python:3.12-slim
 # Install git (required for pip to install from git+https) and libgomp1
 RUN apt-get update && apt-get install -y git libgomp1 && rm -rf /var/lib/apt/lists/*
 
-#Turn off oneDNN custom operations in tensorflow
-ENV TF_ENABLE_ONEDNN_OPTS=0
-
 # Set working directory
 WORKDIR /app
 
