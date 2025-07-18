@@ -1,24 +1,38 @@
+from torch import manual_seed, set_num_threads, set_num_interop_threads
 from components.log_config import configure_logger, log_progress_snapshot 
 from components.performance import PerformanceMeasures
 from components.architectures import ArchitectureSuite
 from components.eval_strat import EvaluationStrategy
 from components.data import DatasetSuite
-import os, traceback, time, random, torch
+from multiprocessing import cpu_count
 import components.utils as util
-import numpy as np
-
+import os, traceback, time
+from random import seed
+from numpy import random
 
 SEED = 123456789
-os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1") #Unsafe. Don't do this in prod.
 ds_suite_name = "Tabarena-v0.1-binary"
 eval_strat_name = "5-fold-CV"
 study_version = "v.1"
 output_dir = "results"
 
+os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1") #Unsafe. Don't do this in prod.
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = str(0)
 os.environ['PYTHONHASHSEED'] = str(SEED)
+seed(SEED)
 random.seed(SEED)
-np.random.seed(SEED)
-torch.manual_seed(SEED)
+manual_seed(SEED) 
+
+n_cores = str(max(1, cpu_count() - 2)) 
+os.environ["OMP_NUM_THREADS"] = n_cores
+os.environ["OPENBLAS_NUM_THREADS"] = n_cores
+os.environ["MKL_NUM_THREADS"] = n_cores
+os.environ["NUMEXPR_NUM_THREADS"] = n_cores
+os.environ["VECLIB_MAXIMUM_THREADS"] = n_cores  
+os.environ["KMP_AFFINITY"] = "noverbose"
+set_num_interop_threads(int(n_cores))
+set_num_threads(int(n_cores))
+
 
 if __name__ == "__main__":
     lg, progress = configure_logger()
@@ -31,17 +45,18 @@ if __name__ == "__main__":
     results = {}
 
     lg.info("Starting experiment")
+    start_exp = time.perf_counter()
     with progress:
         outer = progress.add_task("", total=datasets.n_datasets)
 
         for ds_idx, ds in enumerate(datasets, start=1):
+            start_ds = time.perf_counter()
             ds_desc = f"Dataset {ds_idx}/{datasets.n_datasets}: {ds.df_name}"
             progress.update(outer, description=f"[bold blue]{ds_desc}", advance=1)
             lg.info(f"{ds_desc}")  
             
             lg.info(f"Start common pre-processing")
             ds.convert_to_pandas()
-            ds.df = ds.df.sample(1500) #TODO:REMOVE
             ds.pre_process("detect_categorical") #Tag object columns as categorical
             ds.pre_process("convert_nan_to_unique_val") #Replace nan in cat columns with a new uniqe value
             ds.pre_process("encode_categoricals") #To {0,1} if binary else {1,2,3,...}
@@ -49,9 +64,9 @@ if __name__ == "__main__":
             ds.pre_process("convert_nan_to_-1") #Fill nan in numeric features with -1
             lg.info(f"End common pre-processing")
             datasets_metadata[ds.df_name] = ds.meta_data
-
-            inner = progress.add_task("", total=architectures.n_architectures)
             
+            inner = progress.add_task("", total=architectures.n_architectures)
+             
             for arch_idx,arch in enumerate(architectures, start=1):
                 arch_desc = f"Architecture {arch_idx}/{architectures.n_architectures}: {arch.name}"
                 progress.update(inner,description=f"[green]{arch_desc}",advance=1)
@@ -75,19 +90,16 @@ if __name__ == "__main__":
                     }]
                 end_eval = time.perf_counter()
                 lg.info(f"End evaluation of {arch.name}. Wall time spent: {util.format_time(end_eval - start_eval)}")
-            
-            task = progress.tasks[inner]
-            lg.info(f"All evaluations on {ds.df_name} ended. Wall time spent: {util.format_time(task.elapsed)}")
+                
+            end_ds = time.perf_counter()
+            lg.info(f"All evaluations on {ds.df_name} ended. Wall time spent: {util.format_time(end_ds - start_ds)}")
             progress.remove_task(inner) 
-               
-            if ds.df_name == "APSFailure":
-                break #TODO: REMOVE
 
-    progress.remove_task(outer)   
-    lg.info("Experiment completed")
+    end_exp = time.perf_counter()
+    lg.info(f"Experiment completed. Wall time spent {util.format_time(end_exp-start_exp)}")
     
     lg.info("Export results")
     util.save_dict_to_disk(results, output_dir, "results.txt")
-    util.save_dict_to_disk(datasets_metadata, output_dir, "dataset_md.txt")
+    util.save_dict_to_disk(datasets_metadata, output_dir, "datasets_md.txt")
     
     
