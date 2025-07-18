@@ -59,7 +59,7 @@ class PerformanceMeasures:
         ce = lambda y_test, y_prob: CalibrationEvaluator(y_test, y_prob, outsample=True)
         
         self.measure_functions["brier_score"] = lambda                x_test, y_prob ,y_pred, y_test:  ce(y_test, y_prob).brier
-        self.measure_functions["spiegelhalter_z_statistic"] = lambda  x_test, y_prob ,y_pred, y_test:  np.clip(ce(y_test, y_prob).z_test().statistic, a_min=-12, a_max=12)
+        self.measure_functions["abs_clip_spiegelhalter_z_statistic"] = lambda  x_test, y_prob ,y_pred, y_test:  abs(np.clip(ce(y_test, y_prob).z_test().statistic, a_min=-12, a_max=12))
         self.measure_functions["log_loss"] = lambda                   x_test, y_prob ,y_pred, y_test:  skm.log_loss(y_test, y_prob, normalize=True)
 
         self.measure_functions["auc_roc"] = lambda    x_test, y_prob ,y_pred, y_test:   ce(y_test, y_prob).auroc
