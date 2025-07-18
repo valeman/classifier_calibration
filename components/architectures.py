@@ -126,7 +126,7 @@ class PostProcessing:
         self._predict_prob_fn = predict_prob_fn
     
     def instantiate(self, meta_data:dict) -> None:
-        lg.info(f"Post-processing:{self.pp_name} instantiated with:{self.instatiator_fn(meta_data)}")
+        lg.info(f"Post-processing:{self.pp_name} instantiated with: \n{self.instatiator_fn(meta_data)}")
         self.learner = self.learner_class(**self.instatiator_fn(meta_data))
 
     def fit(self, y_instance:np.array, y_target:pd.Series) -> None:
@@ -150,7 +150,7 @@ class Model:
         self._predict_prob_fn = predict_prob_fn
     
     def instantiate(self, meta_data:dict) -> None:
-        lg.info(f"Model:{self.model_name} instantiated with:{self.instatiator_fn(meta_data)}")
+        lg.info(f"Model:{self.model_name} instantiated with:\n{self.instatiator_fn(meta_data)}")
         self.learner = self.learner_class(**self.instatiator_fn(meta_data))
 
     def fit(self, x:pd.DataFrame, y:pd.Series) -> None:
@@ -285,7 +285,8 @@ class ArchitectureSuite:
         
         cb_instantiator = lambda meta_data: {"random_seed":SEED
                                              ,"thread_count":-1
-                                             , "cat_features":meta_data["cat_features"]}
+                                             ,"verbose":False
+                                             ,"cat_features":meta_data["cat_features"]}
         cb = Model(model_name="cb"
                    ,learner_class= CatBoostClassifier
                    ,instatiator_fn=cb_instantiator
@@ -310,7 +311,9 @@ class ArchitectureSuite:
                    ,predict_prob_fn=md_std_predict_prob
         ) 
         
-        md_lgbm_fit = lambda learner, x, y: learner.fit(x, y, categorical_feature=x.select_dtypes(include='category').columns.tolist())
+        md_lgbm_fit = lambda learner, x, y: learner.fit(x, y
+                                                        , categorical_feature=x.select_dtypes(include='category').columns.tolist()
+                                                        )
         lgbm_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
         lgbm = Model(model_name="lgbm"
                    ,learner_class=LGBMClassifier
