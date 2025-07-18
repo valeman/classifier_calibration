@@ -1,5 +1,6 @@
 import logging
 import time
+from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import (
     Progress,
@@ -18,7 +19,7 @@ def log_progress_snapshot(progress, label="Evaluate"):
             name = task.description
             task_infos.append(f"{name}")
         line = "\n".join(task_infos)
-        logging.getLogger().info(f"\n{'-'*28} {label} {'-'*28} \n{line}\n")
+        logging.getLogger().info(f"\n{'-'*25} {label} {'-'*25} \n{line}\n")
 
 
 class TimeDiffFormatter(logging.Formatter):
@@ -37,8 +38,10 @@ class TimeDiffFormatter(logging.Formatter):
 
 def configure_logger() -> logging.Logger:
     logging.captureWarnings(True)
-    
+    console = Console()
+
     rich_handler = RichHandler(
+        console=console,
         rich_tracebacks=True,
         show_time=False,    
         show_level=False,   
@@ -59,6 +62,7 @@ def configure_logger() -> logging.Logger:
         BarColumn(),
         TimeElapsedColumn(),
         TimeRemainingColumn(),
+        console=console,
     )
     
     return logging.getLogger("app"), progress
