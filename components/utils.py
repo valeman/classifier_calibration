@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 import uuid
 import numpy as np
 import os
@@ -11,6 +11,9 @@ def format_time(seconds):
         return "-:--:--"
     return str(timedelta(seconds=int(seconds)))
 
+def time_now():
+    now = datetime.now()
+    return now.strftime("%Y-%m-%d %H:%M:%S")
 
 def get_unique_id(existing:list, pre_fix:str, random_seed:int=123) -> str:
     """Returns a unique str not in the existing list

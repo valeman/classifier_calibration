@@ -44,7 +44,7 @@ if __name__ == "__main__":
     datasets_metadata = {}
     results = {}
 
-    lg.info("Starting experiment")
+    lg.info(f"Starting experiment: {util.time_now()}")
     start_exp = time.perf_counter()
     with progress:
         outer = progress.add_task("", total=datasets.n_datasets)
