@@ -49,7 +49,6 @@ def all_numbers_and_finite(arr: np.ndarray) -> bool:
     return np.isfinite(f).all()
 
         
-
 def save_dict_to_disk(data:dict, output_dir:str, file_name:str) -> None:
     """
     Save the data dict to file_name in the given directory 
