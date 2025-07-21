@@ -250,8 +250,7 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/python,windows,macos,linux
 test.py
 .lr_find_*.ckpt
-results
-results_log
+results*
 catboost_info
 lightning_logs
 saved_models
