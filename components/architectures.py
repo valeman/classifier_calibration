@@ -86,6 +86,7 @@ class WrapPearsonify:
         y_target = np.asarray(y_target)
         y_instance = y_instance.reshape(-1,)  
         y_target = y_target.reshape(-1,)
+        y_instance = np.clip(y_instance, a_min=1e-4, a_max=1 - 1e-4)
         residuals = pear.utils.compute_pearson_residuals(y_target, y_instance)
         self.q_alpha = np.quantile(np.abs(residuals), 1 - self.alpha)
         
