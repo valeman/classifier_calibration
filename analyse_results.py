@@ -3,47 +3,12 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-import os, json
 
-output_dir = "results_log"
+def merge_results():
+    raise NotImplementedError
 
-def load_dict(output_dir: str, file_name: str) -> dict:
-    """
-    Load a dictionary from a JSON dumped .txt file.
-
-    Parameters
-    ----------
-    output_dir : str
-        Subdirectory (under cwd) where the file lives.
-    file_name : str
-        Name of the .txt file (e.g. "mydict.txt").
-
-    Returns
-    -------
-    Dict
-        The dictionary that was saved.
-
-    Raises
-    ------
-    FileNotFoundError
-        If the target file does not exist.
-    ValueError
-        If the file's contents aren't a JSON object.
-    json.JSONDecodeError
-        If the file isn't valid JSON.
-    """
-    path = os.path.join(os.getcwd(), output_dir, file_name)
-
-    if not os.path.isfile(path):
-        raise FileNotFoundError(f"Cannot find file at {path!r}")
-
-    with open(path, 'r', encoding='utf-8') as f:
-        obj = json.load(f)
-
-    if not isinstance(obj, dict):
-        raise ValueError(f"Expected a JSON object (dict) in {path!r}, got {type(obj)}")
-    return obj
-
+def merge_mds():
+    raise NotImplementedError
 
 def sanity_checks() -> dict:
         between_m1_p1 = lambda value: None if -1 <= value <= 1 else "not in [-1, 1]"
@@ -76,6 +41,15 @@ def sanity_checks() -> dict:
 
 
 def qc_input(res:dict, md:dict) -> None:
+    #Check that all architectures are in the res dict
+    if len(res.keys()) != 60:
+        print("Architectures are missing")
+    #Check that all architectures were ran on all datasets in the res dict
+    for arch_name in res.keys():
+        if len(res[arch_name].keys()) != 30:
+            print(f"Datasets missing for {arch_name}") 
+
+    #Check that all measure values make sense for all runs for all archs on all datasets
     scs = sanity_checks()
     for arch, dss in res.items():
         for ds, runs in dss.items():
@@ -101,36 +75,41 @@ def qc_input(res:dict, md:dict) -> None:
 
 def analyse_results(res:dict, md:dict) -> dict:
     """
-    I have dataset metadata (md), and performance measures per architecture, dataset and run (res).
+    Takes the performance measures in res and metadata in md to produce and export the below analysis:
 
-	2. Rank absolute calibration performance rating by ECI global,log-loss,brier cal aggregate and comp cost  of each architecture across all datasets 
-        Ranking pre-averaging. 
-        Display average comp cost of each arch scaled by n_train, n_test across datasets.
-        Highlight average comp cost across runs for a small, medium and large dataset per arch. 
+    Ranking is performed by placing each arch for a dataset and run in a relative position (1st, 2nd, 3rd...) according to a performance measure.
+    A archs probability of being in a position is incremented each time it empirically has that position. 
+    You then get a distribution reflecting the probability of an arch having each of the positions. 
+    A single ranking across archs is made by sorting the archs by the highest expected position. 
 
-	3. Rank marginal calibration performance rating by  ECI global,log-loss and brier  of each post-hoc method across all datasets
-			Did any degrade calibration?
-
-            post-hoc method rating grouped by model across datasets marginal
-					Which is best with respect to the model across datasets
-
-			post-hoc method rating across datasets and models marginal
-					which is best across models and datasets
-							
-	4. See if post-hoc calibration degrades overall performance. 
-        Did any calibraiton methods degrade other metrics?
+	1. Rank absolute calibration performance rating by ECI global,log-loss,brier score and z-score of each architecture across all datasets.
+        Ranking is performed per run. 
+        Ranking is also aggregated across measures. 
     
-    1. Average out measures across runs. Gives Expectation in measure value on OOS instances, given dataset and architecture.
-        sum cpu time
-    Dump averages per dataset to appendix    
-    """  
+    2. Rank absolute computational cost of each architecture by wall time train and predict across all datasets
+        Ranking is performed per run.
 
-    """    
-	2. Rank absolute calibration performance rating by ECI global,log-loss,brier cal aggregate and comp cost  
-    of each architecture across all datasets 
-        Ranking pre-averaging. 
-        Display average comp cost of each arch scaled by n_train, n_test across datasets.
-        Highlight average comp cost across runs for a small, medium and large dataset per arch. 
+    3. Display average wall time train and predict cost of each architecture scaled by n_train and n_test across datasets
+        
+	4. Rank marginal calibration performance rating by ECI global,log-loss brier score and z-score of each post-hoc method across all datasets
+		First per model and then across models. 
+        Ranking is performed per run.
+        Ranking is also aggregated across measures. 
+
+    5. Display average relative improvement in calibration performance by method. 
+
+	6. Per post-hoc calibration method. See delta in other performance measures.  
+        Did any calibraiton methods degrade other metrics?
+
+    Args:
+        res (dict): A nested dictionary. 
+            Key is the architecture. Value is a dict. For the inner dict:
+                Key is the dataset
+                Value is a list. For the inner list:
+                    Each element is a dict. For the inner dict:
+                        Key is the measure name. Value is the measure's numeric value.
+        md (dict): A nested dictionary.
+            Key is the dataset. Value is a dict with meta data. 
     """
     
     #Get the name of all architectures
@@ -148,16 +127,15 @@ def analyse_results(res:dict, md:dict) -> dict:
             inv_res[ds_name][arch_name] = runs
             n_runs = max(n_runs, len(runs))
     
+    #1:
     ranking_m = {
     "brier_score":False,
     "log_loss":False,
     "eci_global":False,
     #"abs_clip_spiegelhalter_z_statistic":False,
-    
     } 
     ranking_dict = {}
-    #Rank each arch per dataset across runs. 
-    #Gives Likelihood of each arch having a given rank by a measure for a given dataset across runs.
+    
     #Probability of an arch having a rank by a measure if you randomly choose a run for a dataset
     for ds_name, arch_dict in inv_res.items():
         ranking_dict[ds_name] = {}
@@ -183,8 +161,6 @@ def analyse_results(res:dict, md:dict) -> dict:
                         ranking_dict[ds_name][measure][arch_name] = (p_rank + c_rank)/2
 
 
-    #Aggregate ranking across all datasets
-    #Gives Likelihood of each arch having a given rank by a measure across runs and datasets.
     #Probability of an arch having a rank by a measure if you randomly choose a run and dataset
     agg_key = "aggregate"
     ranking_dict[agg_key] = {k:{a:np.zeros(n_archs) for a in archs} for k,_ in ranking_m.items()}
@@ -201,8 +177,6 @@ def analyse_results(res:dict, md:dict) -> dict:
                 else:
                     ranking_dict[agg_key][measure][arch_name] = (p_rank + ds_rank)/2
                 
-    #Aggregate ranking across measures
-    #Gives Likelihood of each arch having a given rank across measure, across runs and across datasets.
     #Probability of an arch having a rank  if you randomly choose a measure, run and dataset
     ranking_dict[agg_key][agg_key] = {a:np.zeros(n_archs) for a in archs}
     for m_name, m_dict in ranking_dict[agg_key].items():
@@ -218,13 +192,19 @@ def analyse_results(res:dict, md:dict) -> dict:
             else:
                 ranking_dict[agg_key][agg_key][arch_name] = (p_rank + m_rank)/2
     
-    ranking_dict[agg_key][agg_key]["lr"]
-    plot_ranking_hist(ranking_dict[agg_key][agg_key], 'lr')
+    #Calculate expected rankings.
+    
+    ranking_dict.keys()
+    ranking_dict["aggregate"].keys()
+    ranking_dict["aggregate"]["aggregate"].keys() 
+    ranking_dict["aggregate"]["aggregate"]["cb"]
+    #Rank each arch by expected rating. 
 
 
-    #Pick arch with highest probability per ranking position. 
-    #Arch with highest expected ranking positions
-    raise NotImplementedError
+    #ranking_dict[agg_key][agg_key]["lr"]
+    #plot_ranking_hist(ranking_dict[agg_key][agg_key], 'lr')
+
+
 
 
 def plot_ranking_hist(data, architecture):
@@ -261,12 +241,23 @@ def export_analysis(ana, output_dir):
 
 
 if __name__ == "__main__":
-    res = load_dict(output_dir, "results.txt")
-    md = load_dict(output_dir, "datasets_md.txt")
     
+    output_dir = "results_log"
+    #Load all the data
+    res = util.load_dict(output_dir, "results.txt")
+    md = util.load_dict(output_dir, "datasets_md.txt")
+    
+    #Merge data from different processes
+    #res = merge_results(res)
+    #md = merge_mds(md)
+
+    #Make sure all the data is there and makes sense
     qc_input(res, md)
 
+    #Analyse the data
     ana = analyse_results(res, md)
+    
+    #Export the resulting analysis 
     #export_analysis(ana, output_dir)
 
     
