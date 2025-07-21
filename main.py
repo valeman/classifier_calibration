@@ -63,7 +63,7 @@ if __name__ == "__main__":
             ds.pre_process("clean_numerical") #Ensure non-cat object columns only contain numbers.
             ds.pre_process("convert_nan_to_-1") #Fill nan in numeric features with -1
             lg.info(f"End common pre-processing")
-            datasets_metadata[ds.df_name] = ds.meta_data
+            datasets_metadata[str(ds.df_name)] = ds.meta_data
             
             inner = progress.add_task("", total=architectures.n_architectures)
              
