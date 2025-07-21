@@ -65,3 +65,40 @@ def save_dict_to_disk(data:dict, output_dir:str, file_name:str) -> None:
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+
+def load_dict(output_dir: str, file_name: str) -> dict:
+    """
+    Load a dictionary from a JSON dumped .txt file.
+
+    Parameters
+    ----------
+    output_dir : str
+        Subdirectory (under cwd) where the file lives.
+    file_name : str
+        Name of the .txt file (e.g. "mydict.txt").
+
+    Returns
+    -------
+    Dict
+        The dictionary that was saved.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the target file does not exist.
+    ValueError
+        If the file's contents aren't a JSON object.
+    json.JSONDecodeError
+        If the file isn't valid JSON.
+    """
+    path = os.path.join(os.getcwd(), output_dir, file_name)
+
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"Cannot find file at {path!r}")
+
+    with open(path, 'r', encoding='utf-8') as f:
+        obj = json.load(f)
+
+    if not isinstance(obj, dict):
+        raise ValueError(f"Expected a JSON object (dict) in {path!r}, got {type(obj)}")
+    return obj

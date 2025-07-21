@@ -85,9 +85,11 @@ def encode_categoricals(df: pd.DataFrame, cat_cols: list[str]) -> tuple[pd.DataF
             codes = list(range(1, len(uniques) + 1))
 
         m = {val: int(code) for val, code in zip(uniques, codes)}
+        df_encoded[col] = pd.Categorical(df_encoded[col].map(m), categories=list(m.values()))
+        m = {str(k):str(v) for k,v in m.items()}
         mappings[col] = m
         
-        df_encoded[col] = pd.Categorical(df_encoded[col].map(m), categories=list(m.values()))
+        
     return df_encoded, mappings
 
 

@@ -73,17 +73,17 @@ if __name__ == "__main__":
                 log_progress_snapshot(progress)
 
                 if arch.name not in results.keys():
-                    results[arch.name] = {}
+                    results[str(arch.name)] = {}
                 
                 lg.info(f"Start evaluation")
                 start_eval = time.perf_counter()
                 eval_strat = EvaluationStrategy(eval_strat_name, ds, p_measures, random_seed=SEED)  
                 try:
-                    results[arch.name][ds.df_name] = eval_strat.run(arch)
+                    results[str(arch.name)][str(ds.df_name)] = eval_strat.run(arch)
 
                 except Exception as err:
                     lg.exception(f"Failed to evaluate {arch.name} on {ds.df_name}")
-                    results[arch.name][ds.df_name] = [{
+                    results[str(arch.name)][str(ds.df_name)] = [{
                         "status": "failed"
                         ,"error_message": str(err)
                         ,"trace": traceback.format_exc()
