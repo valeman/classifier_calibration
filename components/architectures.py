@@ -323,11 +323,13 @@ class ArchitectureSuite:
         ) 
 
         lr_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
+        md_lr_fit = lambda learner, x, y: learner.fit(x[x.columns].astype("float"), y)
+        md_lr_predict_prob = lambda learner, x: learner.predict_proba(x[x.columns].astype("float"))
         lr = Model(model_name="lr"
                    ,learner_class=LogisticRegression
                    ,instatiator_fn=lr_instantiator
-                   ,fit_fn=md_std_fit
-                   ,predict_prob_fn=md_std_predict_prob
+                   ,fit_fn=md_lr_fit
+                   ,predict_prob_fn=md_lr_predict_prob
         ) 
 
         
