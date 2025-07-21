@@ -59,8 +59,7 @@ def save_dict_to_disk(data:dict, output_dir:str, file_name:str) -> None:
         output_dir (str)
         file_name (str) 
     """
-    output_dir = os.path.join(os.getcwd(), output_dir)
-    os.makedirs(output_dir, exist_ok=True)
+    create_pwd_dir(output_dir)
     filename = os.path.join(output_dir, file_name)
     with open(filename, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
@@ -102,3 +101,9 @@ def load_dict(output_dir: str, file_name: str) -> dict:
     if not isinstance(obj, dict):
         raise ValueError(f"Expected a JSON object (dict) in {path!r}, got {type(obj)}")
     return obj
+
+
+def create_pwd_dir(path):
+    OUTPUT_DIR = os.path.join(os.getcwd(), path)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    return OUTPUT_DIR
