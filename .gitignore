@@ -251,6 +251,7 @@ $RECYCLE.BIN/
 test.py
 .lr_find_*.ckpt
 results*
+archive
 catboost_info
 lightning_logs
 saved_models

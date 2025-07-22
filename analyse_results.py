@@ -1,24 +1,22 @@
 from matplotlib.patches import Patch
+from scipy.stats import gaussian_kde
 from itertools import chain
-from typing import Tuple, Generator
+from typing import Tuple
+import re
 import matplotlib.pyplot as plt
 import matplotlib
 import components.utils as util
 import numpy as np
-
+import math
 
 matplotlib.use('Agg')
 
-def merge_results():
-    raise NotImplementedError
-
-def merge_mds():
-    raise NotImplementedError
 
 def sanity_checks() -> dict:
-    """Return a dictonary mapping performance measure names to functions.
-        The functions return a string when the value of the measure is in an
-        unexpected set. 
+    """
+    Return a dictonary mapping performance measure names to functions.
+    The functions return a string when the value of the measure is in an
+    unexpected set. 
 
     Returns:
         dict
@@ -171,13 +169,13 @@ def rank_across_runs_by_me(agg_key:str, ranking_m:dict, ranking_dict:dict, archs
 
     Args:
         agg_key (str): The key to store the results under.
-        ranking_m (dict): See: def rank_across_runs_by_ds
-        ranking_dict (dict): See: def rank_across_runs_by_ds
-        archs (list): See: def rank_across_runs_by_ds
-        n_archs (int): See: def rank_across_runs_by_ds
+        ranking_m (dict): See: def rank_across_runs_by_ds_me
+        ranking_dict (dict): See: def rank_across_runs_by_ds_me
+        archs (list): See: def rank_across_runs_by_ds_me
+        n_archs (int): See: def rank_across_runs_by_ds_me
 
     Returns:
-        dict: See: def rank_across_runs_by_ds
+        dict: See: def rank_across_runs_by_ds_me
             It's ranking_dict with a new outer key added {agg_key}
     """
     ranking_dict[agg_key] = {k:{a:np.zeros(n_archs) for a in archs} for k,_ in ranking_m.items()}
@@ -204,13 +202,14 @@ def rank_across_runs(agg_key:str, ranking_dict:dict, archs:list, n_archs:int) ->
     If you randomly choose a run,dataset and measure.
 
     Args:
-        agg_key (str): _description_
-        ranking_dict (dict): _description_
-        archs (list): _description_
-        n_archs (int): _description_
+        agg_key (str): See: def rank_across_runs_by_me
+        ranking_dict (dict): See: def rank_across_runs_by_me
+        archs (list)
+        n_archs (int)
 
     Returns:
-        dict: _description_
+        dict: See: def rank_across_runs_by_me
+            It's ranking_dict with a new inner key added {agg_key}
     """
     ranking_dict[agg_key][agg_key] = {a:np.zeros(n_archs) for a in archs}
     for m_name, m_dict in ranking_dict[agg_key].items():
@@ -249,6 +248,18 @@ def calc_expected_ranking(ranking_dict:dict) -> dict:
     return exp_ranking_dict
 
 
+def get_models(archs:list) -> list:
+    models = set([a.split(".")[0] for a in archs])
+    models = sorted(list(models))
+    return models
+
+
+def get_phcm(archs:list) -> list:
+    phcm = set([a.split(".")[1] for a in archs if "." in a])
+    phcm =  sorted(list(phcm))
+    return phcm
+    
+
 def calc_marginals(inv_res:dict, archs:list) -> dict:
     """
     Takes the results from inv_res and returns a new dict on the same structure. 
@@ -263,25 +274,25 @@ def calc_marginals(inv_res:dict, archs:list) -> dict:
     Returns:
         dict
     """
-    marg_inv_res = {k:{} for k,v in inv_res.items()}
-    base = [a for a in archs if "." not in a] 
-    pp = [a for a in archs if "." in a]
+    marg_inv_res = {k:{} for k in inv_res}
+    models = get_models(archs)
+    phcm = get_phcm(archs)
+    pp = [a for a in archs if any(p in a for p in phcm)]
+    
     for ds_name, ds_dict in inv_res.items():
-        for base_a in base:
-            pp_as = [a for a in pp if base_a in a]
+        for model in models:
+            pp_as = [a for a in pp if model in a]
             
             for pp_a in pp_as:
                 marg_inv_res[ds_name][pp_a] = [
-                    {k:p[k]-b[k] for k in b if k != "status"} for b,p in zip(ds_dict[base_a], ds_dict[pp_a])
+                    {k:p[k]-b[k] for k in b if k != "status"} for b,p in zip(ds_dict[model], ds_dict[pp_a])
                     ]
     return marg_inv_res
 
 def transform_per_grouping(marg_inv_res:dict, archs:list) -> Tuple[str,int,int,list,dict]:
     #Get all the unique models and post-hoc calibration methods
-    models = set([a.split(".")[0] for a in archs])
-    models = sorted(list(models))
-    phcm = set([a.split(".")[1] for a in archs if "." in a])
-    phcm =  sorted(list(phcm)) 
+    models = get_models(archs)
+    phcm = get_phcm(archs)
     ds_key = list(marg_inv_res.keys())[0]
     
     #Yield results aggregated across models, grouped by post-hoc calibration method.
@@ -308,7 +319,54 @@ def transform_per_grouping(marg_inv_res:dict, archs:list) -> Tuple[str,int,int,l
         i_n_archs = len(i_archs)
         i_n_runs = len(i_marg_inv_res[ds_key][i_archs[0]])
         yield grouping, i_n_runs, i_n_archs, i_archs, i_marg_inv_res 
+
+
+def is_effectively_zero(x, tol=1e-12):
+    """
+    Return True if x (int or float) is zero within absolute tolerance tol.
+    """
+    return math.isclose(x, 0.0, abs_tol=tol)
+
+
+def rel_change(before, marginal):
+    if is_effectively_zero(marginal):
+        return 0 
+    if is_effectively_zero(before):
+        return "Zero divison"
+    return (marginal/before) * 100
+
+
+def calc_relative(inv_res:dict, marg_inv_res:dict, archs:list) -> dict:
+    """
+    Calculates relative change in perf metrics per run.
+
+    Args:
+        inv_res (dict): See: def invert_res_by_ds
+        marg_inv_res (dict): See: def calc_marginals
+        archs (list)
+
+    Returns:
+        dict: Same structure as marg_inv_res only with relative change in pct (50 not 0.5 for 50%)
+        instead of marginals
+    """
+    rel_inv_res = {k:{} for k in inv_res}
+    models = get_models(archs)
+    phcm = get_phcm(archs)
+    pp = [a for a in archs if any(p in a for p in phcm)]
     
+    
+    for ds_name, abs_ds_dict in inv_res.items():
+        marg_ds_dict = marg_inv_res[ds_name]
+        for model in models:
+            pp_as = [a for a in pp if model in a]
+            for pp_a in pp_as:
+                
+                rel_inv_res[ds_name][pp_a] = [
+                    {k:rel_change(b[k], mp[k]) for k in b if k != "status"} 
+                    for b,mp in zip(abs_ds_dict[model], marg_ds_dict[pp_a])
+                    ]
+     
+    return rel_inv_res
 
 def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     """
@@ -337,7 +395,8 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
         First across models then per model
 
 	5. Per post-hoc calibration method. 
-        See delta in other performance measures.  
+        See delta in other performance measures.
+         #TODO:Which other measures? Examine under the condition that calibration was improved? 
             Did any calibraiton methods degrade other metrics?
         First across models then per model
 
@@ -419,13 +478,27 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
                         ,bottom_n=1
                         )
 
-    #4: 
+    #4:  
     #Transform performance measures into relative change (pct)
-    
+    rel_inv_res = calc_relative(inv_res, marg_inv_res, archs)
+    #Export distribution of relative change in calibration measures per post-hoc calibration method across models and per model.
+    for grouping, _, _, _, i_rel_inv_res in transform_per_grouping(rel_inv_res, archs):
+        i_dir_path = util.create_pwd_dir(dir_path + f"/rel/{grouping}/")    
+        plot_relative_changes(i_rel_inv_res, ranking_m, i_dir_path, grouping)
+
     #5: 
+    ranking_m = {
+    "wall_time_fit_sec":False,
+    "wall_time_predict_sec":False,
+    #"recall_1":True,
+    #"recall_0":True,
+    } 
     #Use relative change data 
     #Examine distribution of relative change in non-calibration measures. 
-    
+    for grouping, _, _, _, i_rel_inv_res in transform_per_grouping(rel_inv_res, archs):
+        i_dir_path = util.create_pwd_dir(dir_path + f"/rel/{grouping}/")    
+        plot_relative_changes(i_rel_inv_res, ranking_m, i_dir_path, grouping)
+   
 
 def plot_line_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) -> None:
     """
@@ -566,19 +639,148 @@ def plot_ranking_hist(data:dict, arch:str) -> None:
     plt.savefig('ranking_lr.png', dpi=150, bbox_inches='tight')
 
 
+def plot_relative_changes(nested_res: dict,
+                          meas_pref: dict,
+                          output_dir: str,
+                          grouping:str,
+                          grid_points: int = 300,
+                          tail_std_mult: float = 4.0) -> None:
+    """
+    For each measurement in meas_pref, collect all relative-change values per architecture
+    from nested_res and plot kernel-density distributions stacked vertically per architecture,
+    highlighting "good" vs "bad" regions and annotating area left/right of zero.
+
+    Ensures the density grid extends beyond raw min/max by a multiple of std so the integrated
+    area under the curve approximates 1.
+
+    Produces one PNG file per measurement in output_dir, with one subplot per architecture.
+
+    Args:
+        nested_res (dict): dict of dataset -> dict of arch -> list of {measurement: relative_change}
+        meas_pref (dict): dict of measurement -> bool (True if more is better)
+        output_dir (str): path where PNGs will be saved
+        grouping (str)
+        grid_points (int, optional): number of points to evaluate KDE on. Defaults to 300.
+        tail_std_mult (float, optional): number of std deviations to extend beyond data mean. Defaults to 4.0.
+    """       
+    for meas, more_is_better in meas_pref.items():
+        arch_vals = {}
+        for ds_dict in nested_res.values():
+            for arch, runs in ds_dict.items():
+                for run in runs:
+                    if meas in run:
+                        arch_vals.setdefault(arch, []).append(run[meas])
+        if not arch_vals:
+            continue
+
+        # Combine all values for global stats
+        all_vals = np.concatenate(list(arch_vals.values()))
+        mean = np.mean(all_vals)
+        std = np.std(all_vals)
+        # Determine extended range to capture KDE tails
+        vmin = mean - tail_std_mult * std
+        vmax = mean + tail_std_mult * std
+        # Fallback to raw data if std=0
+        if std == 0 or vmin >= all_vals.min():
+            vmin = all_vals.min() - 1e-6
+        if std == 0 or vmax <= all_vals.max():
+            vmax = all_vals.max() + 1e-6
+
+        x_grid = np.linspace(vmin, vmax, grid_points)
+
+        # Create stacked subplots
+        n_arch = len(arch_vals)
+        fig, axes = plt.subplots(n_arch, 1,
+                                 sharex=True,
+                                 figsize=(10, 2.5 * n_arch),
+                                 constrained_layout=True)
+        if n_arch == 1:
+            axes = [axes]
+
+        for ax, (arch, vals) in zip(axes, arch_vals.items()):
+            kde = gaussian_kde(vals)
+            y = kde(x_grid)
+
+            # Masks for good/bad
+            if more_is_better:
+                bad_region = (-np.inf, 0)
+                good_region = (0, np.inf)
+            else:
+                good_region = (-np.inf, 0)
+                bad_region = (0, np.inf)
+
+            good_mask = np.logical_and(x_grid >= good_region[0] if np.isfinite(good_region[0]) else True,
+                                       x_grid <= good_region[1] if np.isfinite(good_region[1]) else True)
+            bad_mask  = ~good_mask
+            #bad_mask = (x_grid < 0) if more_is_better else (x_grid > 0)
+            #good_mask = ~bad_mask
+
+            # Areas
+            area_good = kde.integrate_box_1d(*good_region)
+            area_bad  = kde.integrate_box_1d(*bad_region)
+            #area_bad = np.trapz(y[bad_mask], x_grid[bad_mask])
+            #area_good = np.trapz(y[good_mask], x_grid[good_mask])
+
+            # Plot
+            ax.fill_between(x_grid[good_mask], y[good_mask], alpha=0.6, label='good')
+            ax.fill_between(x_grid[bad_mask], y[bad_mask], alpha=0.6, color='red', label='bad')
+            ax.plot(x_grid, y, linewidth=1.2, color='black')
+            ax.axvline(0, color='black', linewidth=1)
+
+            # Annotate
+            ax.text(0.99, 0.8,
+                    f"Area good: {area_good:.3f}\nArea bad: {area_bad:.3f}",
+                    transform=ax.transAxes,
+                    ha='right', va='top', fontsize='small',
+                    bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='gray', alpha=0.7))
+
+            ax.set_ylabel(arch)
+            ax.tick_params(axis='y', left=False, labelleft=False)
+
+        axes[-1].set_xlabel('Relative Change (%)')
+        fig.suptitle(f"KDE of '{meas}' Grouped by {grouping}", fontsize=14)
+
+        out_file = output_dir + f"{meas}.png"
+        plt.savefig(out_file, dpi=300)
+        plt.close(fig)
+
+
+def sort_key(item):
+    # Extract all numbers from the string
+    nums = list(map(int, re.findall(r'\d+', item)))
+    # Pad with 0 if there's only one number
+    if len(nums) == 1:
+        nums.append(0)
+    return tuple(nums)  # Sort by (first_num, second_num)
+
+
+def merge_dicts(output_dir, file_name):
+    output_dir = util.create_pwd_dir(output_dir)    
+    sub_dirs = util.get_subdirs(output_dir)
+    sub_dirs = sorted(sub_dirs, key=sort_key)
+    merged = {}
+    for dirr in sub_dirs:
+        try:
+            path = f"{output_dir}/{dirr}"
+            merged.update(util.load_dict(path, file_name))
+        except FileNotFoundError :
+            print(f"No {file_name} in {path}")
+    return merged
+
 
 if __name__ == "__main__":
-    
-    output_dir = "results_log"
+    output_dir = "archive"
     assets_dir = "assets"
-    #Load all the data
-    res = util.load_dict(output_dir, "results.txt")
-    md = util.load_dict(output_dir, "datasets_md.txt")
     
-    #Merge data from different processes
-    #res = merge_results(res)
-    #md = merge_mds(md)
-
+    #Load all the data
+    #res = util.load_dict(output_dir, "results.txt")
+    #md = util.load_dict(output_dir, "datasets_md.txt")
+    
+    #Merge data from different sources
+    res = merge_dicts(output_dir, "results.txt")
+    
+    md = merge_dicts(output_dir, "datasets_md.txt")
+    
     #Make sure all the data is there and makes sense
     qc_input(res, md)
 

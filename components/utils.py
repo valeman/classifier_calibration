@@ -107,3 +107,6 @@ def create_pwd_dir(path):
     OUTPUT_DIR = os.path.join(os.getcwd(), path)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     return OUTPUT_DIR
+
+def get_subdirs(path):
+    return [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
