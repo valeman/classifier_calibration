@@ -350,13 +350,14 @@ class ArchitectureSuite:
                    ,predict_prob_fn=md_std_predict_prob
         ) 
 
-        
+        md_mlp_fit = lambda learner, x, y: learner.fit(x[x.columns].astype("float"), y)
+        md_mlp_predict_prob = lambda learner, x: learner.predict_proba(x[x.columns].astype("float"))
         mlp_instantiator = lambda meta_data: {"random_state":SEED}
         mlp = Model(model_name="mlp"
                    ,learner_class=MLPClassifier
                    ,instatiator_fn=mlp_instantiator
-                   ,fit_fn=md_std_fit
-                   ,predict_prob_fn=md_std_predict_prob
+                   ,fit_fn=md_mlp_fit
+                   ,predict_prob_fn=md_mlp_predict_prob
         ) 
 
         ttra_instantiator = lambda meta_data: {"random_state":SEED
