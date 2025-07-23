@@ -248,10 +248,10 @@ def calc_expected_ranking(ranking_dict:dict) -> dict:
     return exp_ranking_dict
 
 
-def get_models(archs:list) -> list:
-    models = set([a.split(".")[0] for a in archs])
-    models = sorted(list(models))
-    return models
+def get_learners(archs:list) -> list:
+    learners = set([a.split(".")[0] for a in archs])
+    learners = sorted(list(learners))
+    return learners
 
 
 def get_phcm(archs:list) -> list:
@@ -275,33 +275,33 @@ def calc_marginals(inv_res:dict, archs:list) -> dict:
         dict
     """
     marg_inv_res = {k:{} for k in inv_res}
-    models = get_models(archs)
+    learners = get_learners(archs)
     phcm = get_phcm(archs)
     pp = [a for a in archs if any(p in a for p in phcm)]
     
     for ds_name, ds_dict in inv_res.items():
-        for model in models:
-            pp_as = [a for a in pp if model in a]
+        for learner in learners:
+            pp_as = [a for a in pp if learner in a]
             
             for pp_a in pp_as:
                 marg_inv_res[ds_name][pp_a] = [
-                    {k:p[k]-b[k] for k in b if k != "status"} for b,p in zip(ds_dict[model], ds_dict[pp_a])
+                    {k:p[k]-b[k] for k in b if k != "status"} for b,p in zip(ds_dict[learner], ds_dict[pp_a])
                     ]
     return marg_inv_res
 
 
 def transform_per_grouping(marg_inv_res:dict, archs:list) -> Tuple[str,int,int,list,dict]:
-    #Get all the unique models and post-hoc calibration methods
-    models = get_models(archs)
+    #Get all the unique learners and post-hoc calibration methods
+    learners = get_learners(archs)
     phcm = get_phcm(archs)
     ds_key = list(marg_inv_res.keys())[0]
     
-    #Yield results aggregated across models, grouped by post-hoc calibration method.
+    #Yield results aggregated across learners, grouped by post-hoc calibration method.
     agg_marg_inv_res = {
         ds: {
             a: list(
                 chain.from_iterable(
-                    ds_dict[f"{m}.{a}"] for m in models
+                    ds_dict[f"{m}.{a}"] for m in learners
                 )
             )
             for a in phcm
@@ -312,10 +312,10 @@ def transform_per_grouping(marg_inv_res:dict, archs:list) -> Tuple[str,int,int,l
     i_n_archs=len(phcm)
     yield "phc_method",i_n_runs, i_n_archs, phcm, agg_marg_inv_res
     
-    #Yield results per model
-    for model in models:
-        grouping = model
-        i_marg_inv_res = {ds:{arch:v for arch,v in ds_dict.items() if model in arch} for ds,ds_dict in marg_inv_res.items()}
+    #Yield results per learner
+    for learner in learners:
+        grouping = learner
+        i_marg_inv_res = {ds:{arch:v for arch,v in ds_dict.items() if learner in arch} for ds,ds_dict in marg_inv_res.items()}
         i_archs = sorted(list(i_marg_inv_res[ds_key].keys()))
         i_n_archs = len(i_archs)
         i_n_runs = len(i_marg_inv_res[ds_key][i_archs[0]])
@@ -351,20 +351,20 @@ def calc_relative(inv_res:dict, marg_inv_res:dict, archs:list) -> dict:
         instead of marginals
     """
     rel_inv_res = {k:{} for k in inv_res}
-    models = get_models(archs)
+    learners = get_learners(archs)
     phcm = get_phcm(archs)
     pp = [a for a in archs if any(p in a for p in phcm)]
     
     
     for ds_name, abs_ds_dict in inv_res.items():
         marg_ds_dict = marg_inv_res[ds_name]
-        for model in models:
-            pp_as = [a for a in pp if model in a]
+        for learner in learners:
+            pp_as = [a for a in pp if learner in a]
             for pp_a in pp_as:
                 
                 rel_inv_res[ds_name][pp_a] = [
                     {k:rel_change(b[k], mp[k]) for k in b if k != "status"} 
-                    for b,mp in zip(abs_ds_dict[model], marg_ds_dict[pp_a])
+                    for b,mp in zip(abs_ds_dict[learner], marg_ds_dict[pp_a])
                     ]
      
     return rel_inv_res
@@ -384,18 +384,18 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
         Ranking is also aggregated across measures. 
     
     2. Plot wall time train/predict, CPU time train/predict, peak RAM train/predict and of each architecture against n_cells in train/test across datasets.
-        Only done for the base models, relative change in these measures come later.
+        Only done for the base learners, relative change in these measures come later.
 
 	3. Rank marginal calibration performance rating by ECI global,log-loss brier score and z-score of each post-hoc method across all datasets
         Ranking is also aggregated across measures. 
-        First across models and then per model. 
+        First across learners and then per learner. 
         
     4. Display distribution of relative change in calibration performance by method. 
-        First across models then per model
+        First across learners then per learner
         Plot also includes expected value to the plot.
 
 	5. Display distribution of change in non-calibration performance by method. 
-        First across models then per model
+        First across learners then per learner
             Relative change:
                 wall time train/predict, CPU time train/predict, peak RAM train/predict
                 AUC_ROC
@@ -477,7 +477,7 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     #Transform performance measures into marginals
     marg_inv_res = calc_marginals(inv_res, archs)
 
-    #Perform ranking on marginals per post-hoc calibration method across models and per model.
+    #Perform ranking on marginals per post-hoc calibration method across learners and per learner.
     for grouping, i_n_runs, i_n_archs, i_archs, i_marg_inv_res in transform_per_grouping(marg_inv_res, archs):
         #Probability of an arch having a rank by a measure if you randomly choose a run for a dataset
         i_marg_ranking_dict = rank_across_runs_by_ds_me(i_marg_inv_res, ranking_m, i_n_runs, i_archs, i_n_archs)
@@ -502,7 +502,7 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     #4:  
     #Transform performance measures into relative change (pct)
     rel_inv_res = calc_relative(inv_res, marg_inv_res, archs)
-    #Export distribution of relative change in calibration measures per post-hoc calibration method across models and per model.
+    #Export distribution of relative change in calibration measures per post-hoc calibration method across learners and per learner.
     for grouping, _, _, _, i_rel_inv_res in transform_per_grouping(rel_inv_res, archs):
         i_dir_path = util.create_pwd_dir(dir_path + f"/rel/{grouping}/")    
         plot_changes(i_rel_inv_res, ranking_m, i_dir_path, grouping, change="rel")
@@ -525,7 +525,7 @@ def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) ->
     """
     #TODO: FILL
     """
-    archs = get_models(archs)
+    archs = get_learners(archs)
     # Adjust figure size dynamically based on number of legends
     base_width = 10
     extra_width = 0.5 * len(archs)  # scale with number of legends
@@ -565,7 +565,7 @@ def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) ->
         scatter = plt.scatter(x_vals, y_vals, alpha=0.3, label=None)
 
         # Overlay less transparent points in same color
-        plt.scatter(x_vals, y_vals, alpha=0.3, color=scatter.get_facecolor()[0], label=arch)
+        plt.scatter(x_vals, y_vals, alpha=0.3, color=scatter.get_facecolor()[0], label=None)
 
         # Fit polynomial in log-log space
         log_x = np.log10(x_vals)
@@ -577,7 +577,7 @@ def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) ->
         y_smooth = 10 ** poly(np.log10(x_smooth))
 
         # Plot polynomial curve
-        plt.plot(x_smooth, y_smooth, color=scatter.get_facecolor()[0],alpha=1, linewidth=2)
+        plt.plot(x_smooth, y_smooth, color=scatter.get_facecolor()[0],alpha=1, linewidth=2, label=arch)
 
     # Move legend to the right of the plot
     plt.legend(title="Architecture", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize="small", borderaxespad=0.)
@@ -590,10 +590,10 @@ def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) ->
 
 def plot_rankings(data: dict, outfile: str, title:str, x_label:str, top_n: int = 5, bottom_n: int = 5) -> None:
     """
-    Export a horizontal bar chart of model rankings and highlight top and bottom performers.
+    Export a horizontal bar chart of learner rankings and highlight top and bottom performers.
 
     Args:
-        data (dict): Mapping from model names to ranking metric (lower is better).
+        data (dict): Mapping from learner names to ranking metric (lower is better).
         outfile (str): File path to save the figure
         title (str)
         x_label (str)
