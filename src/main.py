@@ -64,7 +64,7 @@ if __name__ == "__main__":
             ds.pre_process("convert_nan_to_0") #Fill nan in numeric features with 0
             lg.info(f"End common pre-processing")
             datasets_metadata[str(ds.df_name)] = ds.meta_data
-
+           
             inner = progress.add_task("", total=architectures.n_architectures)
             for arch_idx,arch in enumerate(architectures, start=1):
                 arch_desc = f"Architecture {arch_idx}/{architectures.n_architectures}: {arch.name}"
@@ -89,14 +89,14 @@ if __name__ == "__main__":
                     }]
                 end_eval = time.perf_counter()
                 lg.info(f"End evaluation of {arch.name}. Wall time spent: {util.format_time(end_eval - start_eval)}")
-                
+            
             end_ds = time.perf_counter()
             lg.info(f"All evaluations on {ds.df_name} ended. Wall time spent: {util.format_time(end_ds - start_ds)}")
             progress.remove_task(inner) 
 
     end_exp = time.perf_counter()
     lg.info(f"Experiment completed. Wall time spent {util.format_time(end_exp-start_exp)}")
-    
+
     lg.info("Export results")
     util.save_dict_to_disk(results, output_dir, "results.txt")
     util.save_dict_to_disk(datasets_metadata, output_dir, "datasets_md.txt")

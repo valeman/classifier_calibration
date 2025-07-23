@@ -71,10 +71,10 @@ class WrapTabTransformer:
 def get_learners(suite:str, random_seed:int=123):
     match suite:
         case "v.1":
-            get_v1(random_seed)
+            learners = get_v1(random_seed)
         case _:
             raise NotImplementedError
-    
+    return learners
 
 def get_v1(SEED:int):
     learners = []
@@ -116,7 +116,7 @@ def get_v1(SEED:int):
                                                     , categorical_feature=x.select_dtypes(include='category').columns.tolist()
                                                     )
     lgbm_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
-    lgbm = Learner(model_name="lgbm"
+    lgbm = Learner(learner_name="lgbm"
                 ,learner_class=LGBMClassifier
                 ,instatiator_fn=lgbm_instantiator
                 ,fit_fn=md_lgbm_fit
@@ -127,7 +127,7 @@ def get_v1(SEED:int):
     lr_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
     md_lr_fit = lambda learner, x, y: learner.fit(x[x.columns].astype("float"), y)
     md_lr_predict_prob = lambda learner, x: learner.predict_proba(x[x.columns].astype("float"))
-    lr = Learner(model_name="lr"
+    lr = Learner(learner_name="lr"
                 ,learner_class=LogisticRegression
                 ,instatiator_fn=lr_instantiator
                 ,fit_fn=md_lr_fit
@@ -136,7 +136,7 @@ def get_v1(SEED:int):
     learners.append(lr)
     
     knn_instantiator = lambda meta_data: {"n_jobs":-1}
-    knn = Learner(model_name="knn"
+    knn = Learner(learner_name="knn"
                 ,learner_class=KNeighborsClassifier
                 ,instatiator_fn=knn_instantiator
                 ,fit_fn=md_std_fit
@@ -145,7 +145,7 @@ def get_v1(SEED:int):
     learners.append(knn)
     
     svm_instantiator = lambda meta_data: {"probability":True, "random_state":SEED}
-    svm = Learner(model_name="svm"
+    svm = Learner(learner_name="svm"
                 ,learner_class=SVC
                 ,instatiator_fn=svm_instantiator
                 ,fit_fn=md_std_fit
@@ -156,7 +156,7 @@ def get_v1(SEED:int):
     md_mlp_fit = lambda learner, x, y: learner.fit(x[x.columns].astype("float"), y)
     md_mlp_predict_prob = lambda learner, x: learner.predict_proba(x[x.columns].astype("float"))
     mlp_instantiator = lambda meta_data: {"random_state":SEED}
-    mlp = Learner(model_name="mlp"
+    mlp = Learner(learner_name="mlp"
                 ,learner_class=MLPClassifier
                 ,instatiator_fn=mlp_instantiator
                 ,fit_fn=md_mlp_fit
@@ -175,7 +175,7 @@ def get_v1(SEED:int):
                                             , "verbose":False
     }
     
-    ttra = Learner(model_name="ttra"
+    ttra = Learner(learner_name="ttra"
                 ,learner_class=WrapTabTransformer
                 ,instatiator_fn=ttra_instantiator
                 ,fit_fn=md_std_fit
@@ -193,12 +193,12 @@ def get_v1(SEED:int):
         "memory_saving_mode":"auto",
         "n_jobs":-1
     }
-    tpfn = Learner(model_name="tabpfn"
+    tpfn = Learner(learner_name="tabpfn"
                 ,learner_class=TabPFNClassifier
                 ,instatiator_fn=tpfn_instantiator
                 ,fit_fn=md_std_fit
                 ,predict_prob_fn=md_std_predict_prob
-                ,pre_trained_model=True
+                ,pre_trained=True
     ) 
     learners.append(tpfn)
 

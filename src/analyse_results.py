@@ -817,7 +817,7 @@ def merge_dicts(output_dir, file_name):
         try:
             path = f"{output_dir}/{dirr}"
             merged.update(util.load_dict(path, file_name))
-        except FileNotFoundError :
+        except FileNotFoundError:
             print(f"No {file_name} in {path}")
     return merged
 
@@ -831,14 +831,6 @@ if __name__ == "__main__":
     md = util.load_dict(output_dir, "datasets_md.txt")
     
     #Merge data from different sources
-    """
-    Run notes:
-        2: xgb, lgbm, ttra, mlp + all
-        3: svm, lr, knn,  rf, cb, + all
-        3_1: lr + all | replace lr from 3
-        3_2: all - tabpfn + pearsonify | replace all .pearsonify
-        3_3: mlp + all | replace all mlp
-    """
     #res = merge_dicts(output_dir, "results.txt")
     #md = merge_dicts(output_dir, "datasets_md.txt")
     

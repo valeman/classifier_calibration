@@ -42,6 +42,14 @@ Install all the requirements
 ```
 pip install -r requirements.txt
 ```
+Install autogluon seperately to avoid a dependency conflict in numpy
+```
+pip install autogluon.tabular[all]==1.3.1
+```
+make src your current working directory
+```
+cd src
+```
 Run the main.py script to evaluate all the models over all datasets
 ```
 python main.py

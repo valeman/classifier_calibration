@@ -10,12 +10,12 @@ WORKDIR /app
 # Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
+RUN pip install --no-cache-dir autogluon.tabular[all]==1.3.1
 # Create the components directory
 RUN mkdir -p components
 # Copy application code
-COPY main.py .  
-COPY components/ ./components/
+COPY src/main.py .  
+COPY src/components/ ./components/
 
 # Define default command
 CMD ["python", "main.py"]
