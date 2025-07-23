@@ -289,6 +289,7 @@ def calc_marginals(inv_res:dict, archs:list) -> dict:
                     ]
     return marg_inv_res
 
+
 def transform_per_grouping(marg_inv_res:dict, archs:list) -> Tuple[str,int,int,list,dict]:
     #Get all the unique models and post-hoc calibration methods
     models = get_models(archs)
@@ -367,6 +368,7 @@ def calc_relative(inv_res:dict, marg_inv_res:dict, archs:list) -> dict:
                     ]
      
     return rel_inv_res
+
 
 def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     """
@@ -519,13 +521,12 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
         plot_changes(i_marg_inv_res, marg_delta_m, i_dir_path, grouping, change="marg")
    
 
-
 def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) -> None:
     """
     #TODO: FILL
     """
     archs = get_models(archs)
-     # Adjust figure size dynamically based on number of legends
+    # Adjust figure size dynamically based on number of legends
     base_width = 10
     extra_width = 0.5 * len(archs)  # scale with number of legends
     fig_width = 10
@@ -557,13 +558,34 @@ def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) ->
             x_vals.append(np.mean(x_run))
             y_vals.append(np.mean(y_run))
 
-        plt.scatter(x_vals, y_vals, label=arch)
-       # Move legend to the right of the plot
+        x_vals = np.array(x_vals)
+        y_vals = np.array(y_vals)
+
+        # Plot transparent base points
+        scatter = plt.scatter(x_vals, y_vals, alpha=0.3, label=None)
+
+        # Overlay less transparent points in same color
+        plt.scatter(x_vals, y_vals, alpha=0.3, color=scatter.get_facecolor()[0], label=arch)
+
+        # Fit polynomial in log-log space
+        log_x = np.log10(x_vals)
+        log_y = np.log10(y_vals)
+        degree = min(2, len(log_x) - 1)  # degree 2 unless very few points
+        coeffs = np.polyfit(log_x, log_y, deg=degree)
+        poly = np.poly1d(coeffs)
+        x_smooth = np.logspace(np.log10(min(x_vals)), np.log10(max(x_vals)), 200)
+        y_smooth = 10 ** poly(np.log10(x_smooth))
+
+        # Plot polynomial curve
+        plt.plot(x_smooth, y_smooth, color=scatter.get_facecolor()[0],alpha=1, linewidth=2)
+
+    # Move legend to the right of the plot
     plt.legend(title="Architecture", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize="small", borderaxespad=0.)
     plt.tight_layout(rect=[0, 0, 0.8, 1])  # Make room on right for legend
 
     plt.savefig(outfile, dpi=300, bbox_inches='tight')
     plt.close()
+
 
 
 def plot_rankings(data: dict, outfile: str, title:str, x_label:str, top_n: int = 5, bottom_n: int = 5) -> None:
@@ -805,8 +827,8 @@ if __name__ == "__main__":
     assets_dir = "assets"
     
     #Load all the data
-    #res = util.load_dict(output_dir, "results.txt")
-    #md = util.load_dict(output_dir, "datasets_md.txt")
+    res = util.load_dict(output_dir, "results.txt")
+    md = util.load_dict(output_dir, "datasets_md.txt")
     
     #Merge data from different sources
     """
@@ -817,9 +839,8 @@ if __name__ == "__main__":
         3_2: all - tabpfn + pearsonify | replace all .pearsonify
         3_3: mlp + all | replace all mlp
     """
-    res = merge_dicts(output_dir, "results.txt")
-    
-    md = merge_dicts(output_dir, "datasets_md.txt")
+    #res = merge_dicts(output_dir, "results.txt")
+    #md = merge_dicts(output_dir, "datasets_md.txt")
     
     #Make sure all the data is there and makes sense
     qc_input(res, md)
