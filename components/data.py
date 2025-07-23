@@ -182,8 +182,8 @@ class Dataset:
                     else:
                         self.df[col] = num
 
-            case "convert_nan_to_-1": #Only for numerical columns
-                self.df[self.non_cat_columns] = self.df[self.non_cat_columns].fillna(-1) 
+            case "convert_nan_to_0": #Only for numerical columns
+                self.df[self.non_cat_columns] = self.df[self.non_cat_columns].fillna(0) 
 
             case _:
                 raise NotImplementedError
