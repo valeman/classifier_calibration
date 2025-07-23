@@ -2,12 +2,11 @@ from matplotlib.patches import Patch
 from scipy.stats import gaussian_kde
 from itertools import chain
 from typing import Tuple
-import re
+import components.utils as util
 import matplotlib.pyplot as plt
 import matplotlib
-import components.utils as util
+import math, re
 import numpy as np
-import math
 
 matplotlib.use('Agg')
 
@@ -24,6 +23,7 @@ def sanity_checks() -> dict:
     between_m1_p1 = lambda value: None if -1 <= value <= 1 else "not in [-1, 1]"
     between_0_1 = lambda value: None if 0 <= value <= 1 else "not in [0, 1]"
     greater_then_0 = lambda value: None if 0 <= value else "not in [0, inf]"
+    greater_then_excl_0 = lambda value: None if 0 < value else "not in <0, inf]"
     
     scs = {
     "abs_clip_spiegelhalter_z_statistic":greater_then_0
@@ -34,12 +34,12 @@ def sanity_checks() -> dict:
     ,"precision":between_0_1
     ,"recall_1":between_0_1
     ,"recall_0":between_0_1
-    ,"brier_score":greater_then_0
-    ,"log_loss":greater_then_0
-    ,"auc_roc":greater_then_0
+    ,"brier_score":greater_then_excl_0
+    ,"log_loss":greater_then_excl_0
+    ,"auc_roc":greater_then_excl_0
     ,"ece_freq":greater_then_0
-    ,"wall_time_fit_sec":greater_then_0
-    ,"wall_time_predict_sec":greater_then_0
+    ,"wall_time_fit_sec":greater_then_excl_0
+    ,"wall_time_predict_sec":greater_then_excl_0
     ,"cpu_time_user_fit_sec":greater_then_0
     ,"cpu_time_system_fit_sec":greater_then_0
     ,"cpu_time_user_predict_sec":greater_then_0
@@ -372,33 +372,36 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     """
     Takes the performance measures in res and metadata in md to produce and export the below analysis:
 
-    Ranking is performed by placing each arch for a dataset and run in a relative position (1st, 2nd, 3rd...) according to a performance measure.
-    An arch's probability of being in a position observed fraction: (number of times in position)/(total runs). 
+    Note: Ranking is performed by placing each arch for a dataset and run in a relative position (1st, 2nd, 3rd...) according to a performance measure.
+    An arch's probability of being in a position is the empirical frequency: (number of runs in a position)/(total runs). (runs/folds)
     You then get a distribution reflecting the probability of an arch having each of the positions.
 
     A single ranking across archs is made by sorting the archs by the highest expected position. 
 
 	1. Rank absolute calibration performance rating by ECI global,log-loss,brier score and z-score of each architecture across all datasets and runs.
-        Ranking is performed per run. 
         Ranking is also aggregated across measures. 
     
-    2. Plot wall time train and predict of each architecture against n_cells in train/test across datasets
-        #TODO:Also CPU time and peak RAM?
+    2. Plot wall time train/predict, CPU time train/predict, peak RAM train/predict and of each architecture against n_cells in train/test across datasets.
+        Only done for the base models, relative change in these measures come later.
 
 	3. Rank marginal calibration performance rating by ECI global,log-loss brier score and z-score of each post-hoc method across all datasets
-		Ranking is performed per run.
         Ranking is also aggregated across measures. 
-
         First across models and then per model. 
         
-    4. Display distribution of relative improvement in calibration performance by method. 
+    4. Display distribution of relative change in calibration performance by method. 
         First across models then per model
+        Plot also includes expected value to the plot.
 
-	5. Per post-hoc calibration method. 
-        See delta in other performance measures.
-         #TODO:Which other measures? Examine under the condition that calibration was improved? 
-            Did any calibraiton methods degrade other metrics?
+	5. Display distribution of change in non-calibration performance by method. 
         First across models then per model
+            Relative change:
+                wall time train/predict, CPU time train/predict, peak RAM train/predict
+                AUC_ROC
+                
+            Marginal change
+                Accuracy
+                Recall_1, Recall_2
+         
 
     Args:
         res (dict): A nested dictionary. 
@@ -421,12 +424,27 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     inv_res, n_runs = invert_res_by_ds(res)
     
     ranking_m = {
-    "brier_score":False,
+    "brier_score":False, #False: Ascending | Less is better
     "log_loss":False,
-    "eci_global":True,
-    #"abs_clip_spiegelhalter_z_statistic":False,
+    "eci_global":True, #False: Descending | More is better
+    "abs_clip_spiegelhalter_z_statistic":False,
     } 
-    comp_cost_m = ["wall_time_fit_sec","wall_time_predict_sec"] 
+    comp_cost_m = ["wall_time_fit_sec"
+                   #,"cpu_time_user_fit_sec"
+                   #,"cpu_time_system_fit_sec"
+                   #,"peak_ram_fit_mb"
+                   ,"wall_time_predict_sec"
+                   #,"cpu_time_user_predict_sec"
+                   #,"cpu_time_system_predict_sec"
+                   #,"peak_ram_predict_mb"
+                   ]
+    rel_delta_m = {m:False for m in comp_cost_m}
+    rel_delta_m["auc_roc"] = True
+    marg_delta_m = {
+    "accuracy":True,    
+    "recall_1":True,
+    "recall_0":True,
+    } 
     agg_key = "aggregate"    
     
     #1:
@@ -448,9 +466,10 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
                       ,x_label=f"Performance measure: {ms_name}")
 
     #2:
+    c_dir_path = util.create_pwd_dir(dir_path + "/cost/")
     for cc_m in comp_cost_m: 
-        outfile = f'{dir_path}/{cc_m}.png'
-        plot_line_cc(inv_res, md, archs, cc_m, outfile)
+        outfile = f'{c_dir_path}/{cc_m}.png'
+        plot_scatter_cc(inv_res, md, archs, cc_m, outfile)
         
     #3: 
     #Transform performance measures into marginals
@@ -484,26 +503,28 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     #Export distribution of relative change in calibration measures per post-hoc calibration method across models and per model.
     for grouping, _, _, _, i_rel_inv_res in transform_per_grouping(rel_inv_res, archs):
         i_dir_path = util.create_pwd_dir(dir_path + f"/rel/{grouping}/")    
-        plot_relative_changes(i_rel_inv_res, ranking_m, i_dir_path, grouping)
+        plot_changes(i_rel_inv_res, ranking_m, i_dir_path, grouping, change="rel")
 
     #5: 
-    ranking_m = {
-    "wall_time_fit_sec":False,
-    "wall_time_predict_sec":False,
-    #"recall_1":True,
-    #"recall_0":True,
-    } 
     #Use relative change data 
     #Examine distribution of relative change in non-calibration measures. 
     for grouping, _, _, _, i_rel_inv_res in transform_per_grouping(rel_inv_res, archs):
         i_dir_path = util.create_pwd_dir(dir_path + f"/rel/{grouping}/")    
-        plot_relative_changes(i_rel_inv_res, ranking_m, i_dir_path, grouping)
+        plot_changes(i_rel_inv_res, rel_delta_m, i_dir_path, grouping, change="rel")
+    
+    #Use marginal change data 
+    #Examine distribution of marginal change in non-calibration measures. 
+    for grouping, _, _, _, i_marg_inv_res in transform_per_grouping(marg_inv_res, archs):
+        i_dir_path = util.create_pwd_dir(dir_path + f"/marg/{grouping}/")    
+        plot_changes(i_marg_inv_res, marg_delta_m, i_dir_path, grouping, change="marg")
    
 
-def plot_line_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) -> None:
+
+def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) -> None:
     """
     #TODO: FILL
     """
+    archs = get_models(archs)
      # Adjust figure size dynamically based on number of legends
     base_width = 10
     extra_width = 0.5 * len(archs)  # scale with number of legends
@@ -522,7 +543,7 @@ def plot_line_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) -> No
         y_vals = []
         for ds_name, ds_dict in inv_res.items():
             if "fit" in cc_m:
-                n_inst = round(md[ds_name]["n_rows"] * 4/5)
+                n_inst = round(md[ds_name]["n_rows"] * 4/5) #TODO: Pass down from main
             else:
                 n_inst = round(md[ds_name]["n_rows"] * 1/5)
             n_features = md[ds_name]["n_columns"] - 1
@@ -536,7 +557,7 @@ def plot_line_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) -> No
             x_vals.append(np.mean(x_run))
             y_vals.append(np.mean(y_run))
 
-        plt.plot(x_vals, y_vals, marker='o', label=arch)
+        plt.scatter(x_vals, y_vals, label=arch)
        # Move legend to the right of the plot
     plt.legend(title="Architecture", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize="small", borderaxespad=0.)
     plt.tight_layout(rect=[0, 0, 0.8, 1])  # Make room on right for legend
@@ -639,14 +660,15 @@ def plot_ranking_hist(data:dict, arch:str) -> None:
     plt.savefig('ranking_lr.png', dpi=150, bbox_inches='tight')
 
 
-def plot_relative_changes(nested_res: dict,
+def plot_changes(nested_res: dict,
                           meas_pref: dict,
                           output_dir: str,
                           grouping:str,
+                          change:str,
                           grid_points: int = 300,
                           tail_std_mult: float = 4.0) -> None:
     """
-    For each measurement in meas_pref, collect all relative-change values per architecture
+    For each measurement in meas_pref, collect all change values per architecture
     from nested_res and plot kernel-density distributions stacked vertically per architecture,
     highlighting "good" vs "bad" regions and annotating area left/right of zero.
 
@@ -660,9 +682,12 @@ def plot_relative_changes(nested_res: dict,
         meas_pref (dict): dict of measurement -> bool (True if more is better)
         output_dir (str): path where PNGs will be saved
         grouping (str)
+        change (str): Whether the change is relative or marginal. 
         grid_points (int, optional): number of points to evaluate KDE on. Defaults to 300.
         tail_std_mult (float, optional): number of std deviations to extend beyond data mean. Defaults to 4.0.
-    """       
+    """
+    assert change in ["rel", "marg"]   
+
     for meas, more_is_better in meas_pref.items():
         arch_vals = {}
         for ds_dict in nested_res.values():
@@ -712,33 +737,40 @@ def plot_relative_changes(nested_res: dict,
             good_mask = np.logical_and(x_grid >= good_region[0] if np.isfinite(good_region[0]) else True,
                                        x_grid <= good_region[1] if np.isfinite(good_region[1]) else True)
             bad_mask  = ~good_mask
-            #bad_mask = (x_grid < 0) if more_is_better else (x_grid > 0)
-            #good_mask = ~bad_mask
+
+            #Expected value
+            expected_value = np.trapz(x_grid * y, x_grid)   
 
             # Areas
             area_good = kde.integrate_box_1d(*good_region)
             area_bad  = kde.integrate_box_1d(*bad_region)
-            #area_bad = np.trapz(y[bad_mask], x_grid[bad_mask])
-            #area_good = np.trapz(y[good_mask], x_grid[good_mask])
-
+       
             # Plot
             ax.fill_between(x_grid[good_mask], y[good_mask], alpha=0.6, label='good')
             ax.fill_between(x_grid[bad_mask], y[bad_mask], alpha=0.6, color='red', label='bad')
             ax.plot(x_grid, y, linewidth=1.2, color='black')
             ax.axvline(0, color='black', linewidth=1)
-
+            
+            
             # Annotate
+            ann = f"E[V]: {expected_value:.3f}"
+            if change == "rel":
+                ann += "%"    
+            ann += f"\nArea good: {area_good:.3f}\nArea bad: {area_bad:.3f}"
+            
             ax.text(0.99, 0.8,
-                    f"Area good: {area_good:.3f}\nArea bad: {area_bad:.3f}",
+                    ann,
                     transform=ax.transAxes,
                     ha='right', va='top', fontsize='small',
                     bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='gray', alpha=0.7))
 
             ax.set_ylabel(arch)
             ax.tick_params(axis='y', left=False, labelleft=False)
-
-        axes[-1].set_xlabel('Relative Change (%)')
-        fig.suptitle(f"KDE of '{meas}' Grouped by {grouping}", fontsize=14)
+        if change == "marg":
+            axes[-1].set_xlabel('Marginal Change')
+        elif change == "rel":
+            axes[-1].set_xlabel('Relative Change (%)')
+        fig.suptitle(f"KDE of change in '{meas}'. Grouped by {grouping}", fontsize=14)
 
         out_file = output_dir + f"{meas}.png"
         plt.savefig(out_file, dpi=300)
@@ -777,6 +809,14 @@ if __name__ == "__main__":
     #md = util.load_dict(output_dir, "datasets_md.txt")
     
     #Merge data from different sources
+    """
+    Run notes:
+        2: xgb, lgbm, ttra, mlp + all
+        3: svm, lr, knn,  rf, cb, + all
+        3_1: lr + all | replace lr from 3
+        3_2: all - tabpfn + pearsonify | replace all .pearsonify
+        3_3: mlp + all | replace all mlp
+    """
     res = merge_dicts(output_dir, "results.txt")
     
     md = merge_dicts(output_dir, "datasets_md.txt")
