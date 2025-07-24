@@ -3,12 +3,11 @@ from typing import Generator
 from components.data import Dataset 
 from components.architectures import Architecture
 from components.performance import PerformanceMeasures
+from components.resource_tracker import ResourceTracker
 import components.utils as util
 import pandas as pd
 import numpy as np
-import tracemalloc
 import logging
-import psutil
 import time
 import gc
 
@@ -32,60 +31,42 @@ class EvaluationStrategy:
             
     def run(self, arch:Architecture) -> list[dict]:
         results = []
-        process = psutil.Process()
         count = 0
         for x_train, y_train, x_test, y_test in self.gen_sets():
+            gc.collect()
             lg.info(f"Start run {count}")
             run_start = time.perf_counter()
-            gc.collect()
-            tracemalloc.start()
-            cpu_fit_start = process.cpu_times()
+            
             start_fit = time.perf_counter()
-
-            arch.fit(self.ds.meta_data, x_train, y_train)
-            
+            with ResourceTracker(sample_interval=0.05) as rt:
+                arch.fit(self.ds.meta_data, x_train, y_train)
             end_fit = time.perf_counter()
-            cpu_fit_end = process.cpu_times()
-            _, peak_ram_fit = tracemalloc.get_traced_memory()
-            tracemalloc.stop()
+            time_fit = end_fit - start_fit
+            rsc_fit = rt.to_dict()
             
             gc.collect()
-            tracemalloc.start()
-            cpu_pre_start = process.cpu_times()
             start_pre = time.perf_counter()
-
-            y_prob = arch.predict_prob(x_test)
-
+            with ResourceTracker(sample_interval=0.05) as rt:
+                y_prob = arch.predict_prob(x_test)
             end_pre = time.perf_counter()
-            cpu_pre_end = process.cpu_times()
-            _, peak_ram_pre = tracemalloc.get_traced_memory()
-            tracemalloc.stop()
-        
+            time_pre = end_pre - start_pre
+            rsc_pre = rt.to_dict()
+
             y_pred = arch.predict(y_prob=y_prob)
 
             perf_measures = self.p_measures.calc_perf(x_test, y_prob ,y_pred,np.asarray(y_test))
-            perf_measures = self.log_computational_performance(perf_measures
-                                                               , start_fit
-                                                               , end_fit
-                                                               , start_pre
-                                                               , end_pre
-                                                               , cpu_fit_start
-                                                               , cpu_fit_end
-                                                               , cpu_pre_start
-                                                               , cpu_pre_end
-                                                               , peak_ram_fit
-                                                               , peak_ram_pre
-            )
-
-            
-            
+            perf_measures = self.log_computational_performance("fit", perf_measures, time_fit, rsc_fit)
+            perf_measures = self.log_computational_performance("pre", perf_measures, time_pre, rsc_pre)
             perf_measures["status"]= "success"
             results.append(perf_measures)
+
             run_end = time.perf_counter()
             lg.info(f"End run {count}. Wall time spent: {util.format_time(run_end - run_start)}")
             count += 1
+
         return results
     
+
     def k_fold_CV(self, ds:Dataset, k=5)-> Generator[tuple[pd.DataFrame],None,None]:
         """
         Implements k-fold cross validation.  
@@ -121,24 +102,20 @@ class EvaluationStrategy:
 
         self.gen_sets = gen_sets
     
-    def log_computational_performance(self, perf_measures:dict
-                                      , start_fit
-                                      , end_fit
-                                      , start_pre
-                                      , end_pre
-                                      , cpu_fit_start
-                                      , cpu_fit_end
-                                      , cpu_pre_start
-                                      , cpu_pre_end
-                                      , peak_ram_fit
-                                      , peak_ram_pre
+
+    def log_computational_performance(self
+                                      , section:str
+                                      , perf_measures:dict
+                                      , timed:float
+                                      , rsc:dict
                                     ) -> dict:
-        perf_measures["wall_time_fit_sec"] = end_fit - start_fit
-        perf_measures["wall_time_predict_sec"] = end_pre - start_pre
-        perf_measures['cpu_time_user_fit_sec'] = cpu_fit_end.user - cpu_fit_start.user
-        perf_measures['cpu_time_system_fit_sec'] = cpu_fit_end.system - cpu_fit_start.system
-        perf_measures['cpu_time_user_predict_sec'] = cpu_pre_end.user - cpu_pre_start.user
-        perf_measures['cpu_time_system_predict_sec'] = cpu_pre_end.system - cpu_pre_start.system
-        perf_measures["peak_ram_fit_mb"] = peak_ram_fit  / 1e6
-        perf_measures["peak_ram_predict_mb"] = peak_ram_pre / 1e6
+        perf_measures[f"wall_time_{section}_sec"] = timed
+        perf_measures[f'cpu_time_total_{section}_sec'] = rsc["total_cpu_time_sec"]
+        perf_measures[f'cpu_time_user_{section}_sec'] = rsc["user_cpu_time_sec"]
+        perf_measures[f'cpu_time_system_{section}_sec'] = rsc["system_cpu_time_sec"]
+        perf_measures[f"peak_ram_{section}_mib"] = rsc["peak_memory_mib"] 
+        perf_measures[f"peak_swap_{section}_mib"] = rsc["peak_swap_mib"] 
+        perf_measures[f"peak_zswap_{section}_mib"] = rsc["peak_zswap_mib"] 
+        perf_measures[f"io_read_total_{section}_mib"] = rsc["total_io_read_mib"] 
+        perf_measures[f"io_write_total_{section}_mib"] = rsc["total_io_write_mib"] 
         return perf_measures            

@@ -16,13 +16,15 @@ class ResourceTracker:
 
     Requires the script to run in its own cgroup (e.g. via systemd-run --user --scope).
     """
-
+    
 
     def __init__(self, sample_interval=0.1):
         self.sample_interval = sample_interval #Secounds
         self._stop_event = threading.Event()
         
-
+    def to_dict(self):
+        return self.__dict__
+    
     def _get_cgroup_path(self):
         # Parse /proc/self/cgroup to find the unified cgroupv2 path
         with open("/proc/self/cgroup") as f:
@@ -83,18 +85,23 @@ class ResourceTracker:
                 self.max_r_memory = self._read_memory(self.max_r_memory, "memory.current")
                 self.max_zs_memory = self._read_memory(self.max_zs_memory, "memory.zswap.current")
                 self.max_s_memory = self._read_memory(self.max_s_memory, "memory.swap.current")
-            except Exception:
-                pass
+            except Exception as e:
+                lg.warning(f"Memory sampling failed: {e}")
             time.sleep(self.sample_interval)
 
     def __enter__(self):
         # Determine cgroup path and initial snapshots
         self.cgroup_path = self._get_cgroup_path()
         lg.info(f"Current cgroup path: {self.cgroup_path}")
+        if self.cgroup_path in ["/sys/fs/cgroup/", "/sys/fs/cgroup/user.slice/"]:
+            lg.warning("Not running in an isolated cgroup. Use systemd-run --user --scope.")
+
         # CPU usage in microseconds
         self.t_cpu_start, self.u_cpu_start, self.s_cpu_start = self._read_cpu_usage()
+        
         # IO  counters
         self.io_read_start, self.io_write_start = self._snapshot_process_io()
+        
         # Start memory sampling thread
         self._stop_event.clear()
         self.max_r_memory = 0
