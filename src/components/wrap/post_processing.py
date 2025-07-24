@@ -44,6 +44,14 @@ def get_pps(suite:str, random_seed:int=123):
 
 
 def get_v1(SEED:int):
+    """
+    "none": No post processing
+    "platt": Platt scaling
+    "isotonic": Isotonic regression
+    "beta": Beta calibration
+    "venn_abers": Venn-abers 
+    "pearsonify": Pearsonify
+    """
     pps = [None]
     pp_std_fit = lambda learner, y_in, y_ta: learner.fit(y_in, y_ta)
     pp_std_predict_prob = lambda learner, y: learner.predict_proba(y)

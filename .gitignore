@@ -255,4 +255,7 @@ notes*
 catboost_info
 lightning_logs
 saved_models
+AutogluonModels
+results
+std.out
 .pt_tmp

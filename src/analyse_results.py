@@ -58,7 +58,7 @@ def qc_input(res:dict, md:dict) -> None:
         md (dict): The meta_data dict output from main.py
     """
     #Check that all architectures are in the res dict
-    if len(res.keys()) != 60:
+    if len(res.keys()) != 96:
         print("Architectures are missing")
     #Check that all architectures were ran on all datasets in the res dict
     for arch_name in res.keys():

@@ -5,19 +5,42 @@ from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.neural_network import MLPClassifier
 from pytorch_tabular import TabularModel
 from pytorch_tabular.models import TabTransformerConfig
 from pytorch_tabular.config import DataConfig, TrainerConfig, OptimizerConfig
 from tabpfn import TabPFNClassifier 
+from tabrepo.benchmark.models.ag import (ModernNCAModel
+                                         , TabMModel
+                                         , TabICLModel
+                                         , RealMLPModel
+)
+from interpret.glassbox import ExplainableBoostingClassifier
+from autogluon.common.features.feature_metadata import FeatureMetadata
 import pandas as pd
 import numpy as np
 
 
+class WrapEBM:
+    """
+    The WrapEBM class wraps EBM to provide a standard API
+    """
+    def __init__(self, n_features, cat_features_idx, n_jobs, random_state):
+        ftypes = ["nominal" if i in cat_features_idx else "auto" for i in range(n_features)]
+        self.clf = ExplainableBoostingClassifier(feature_types=ftypes
+                                                 ,n_jobs=n_jobs
+                                                 ,random_state=random_state)
+
+    def fit(self,x:pd.DataFrame,y:pd.Series) -> None:
+        self.clf.fit(x.to_numpy(), y.to_numpy())
+  
+    def predict_proba(self,x:pd.DataFrame) -> np.array:
+        self.clf.learner.predict_proba(x.to_numpy())
+
 class WrapTabTransformer:
     """
-    The TabTransformer class wraps the TabTransformer implementation of pytorch-tabular to provide a standard API
+    The WrapTabTransformer class wraps the TabTransformer implementation of pytorch-tabular to provide a standard API
     """
     def __init__(self, num_workers:int
             , random_state:int
@@ -68,6 +91,44 @@ class WrapTabTransformer:
         return preds       
 
 
+class WrapTabRepoModels:
+    """
+    The WrapTabRepoModels class wraps models from tabrepo/autogluon to provide a standard API
+    """
+    def __init__(self, model:str
+            , continuous_cols:list[str]
+            , categorical_cols:list[str]
+            ):
+        ftypes = {}
+        ftypes.update({c:"category" for c in categorical_cols})
+        ftypes.update({c:"float" for c in continuous_cols})
+        self.feature_md = FeatureMetadata(type_map_raw=ftypes)
+
+        match model:
+            case "nca":
+                self.clf = ModernNCAModel(problem_type="binary")
+            case "tabm":
+                self.clf = TabMModel(problem_type="binary")
+            case "ticl":
+                self.clf = TabICLModel(problem_type="binary")
+            case "remlp":
+                self.clf = RealMLPModel(problem_type="binary")
+            case _:
+                raise NotImplementedError
+
+    def fit(self,x:pd.DataFrame,y:pd.Series) -> None:
+        self.clf.fit(X=x
+                     , y=y
+                     , num_cpus=-1
+                     , feature_metadata=self.feature_md
+                     , time_limit=60*60 #1 hour 
+                     , verbosity=1
+        )
+
+    def predict_proba(self,x:pd.DataFrame) -> np.array:
+        return self.clf.predict_proba(X=x)
+
+
 def get_learners(suite:str, random_seed:int=123):
     match suite:
         case "v.1":
@@ -76,11 +137,55 @@ def get_learners(suite:str, random_seed:int=123):
             raise NotImplementedError
     return learners
 
+
 def get_v1(SEED:int):
+    """
+    "svm": Support vector machine
+    "lr": Logistic Regression
+    "knn": K-Nearest Neighbours
+    "rf": RandomForest
+    "ext": ExtraTrees
+    "ebm": Explainable Boosting Machine
+    "cb": Catboost
+    "xgb": XGBoost
+    "lgbm": LightGBM
+    "nca": ModernNCA
+    "ttra": TabTransformer
+    "ticl": TabICL
+    "tpfn": TabPFN
+    "tabm": TabM
+    "mlp": Multilayer Perceptron 
+    "remlp": Real Multilayer Perceptron
+    """
     learners = []
     md_std_fit = lambda learner, x, y: learner.fit(x, y)
     md_std_predict_prob = lambda learner, x: learner.predict_proba(x)
     
+
+    
+    ext_instantiator = lambda meta_data: {"random_state":SEED ,"n_jobs":-1}
+    ext = Learner(learner_name="ext"
+                ,learner_class=ExtraTreesClassifier
+                ,instatiator_fn=ext_instantiator
+                ,fit_fn=md_std_fit
+                ,predict_prob_fn=md_std_predict_prob
+    ) 
+    learners.append(ext)
+
+    ebm_instantiator = lambda meta_data: {"n_features":meta_data["n_columns"]-1
+                                          ,"cat_features_idx":meta_data["cat_features_indices"]
+                                          ,"n_jobs":-1
+                                          ,"random_state":SEED
+                                          }
+    ebm = Learner(learner_name="ebm"
+                ,learner_class=WrapEBM
+                ,instatiator_fn=ebm_instantiator
+                ,fit_fn=md_std_fit
+                ,predict_prob_fn=md_std_predict_prob
+    ) 
+    learners.append(ebm)
+
+
     cb_instantiator = lambda meta_data: {"random_seed":SEED
                                             ,"thread_count":-1
                                             ,"verbose":False
@@ -152,6 +257,59 @@ def get_v1(SEED:int):
                 ,predict_prob_fn=md_std_predict_prob
     )
     learners.append(svm)
+
+    nca_instantiator = lambda meta_data: {"model":"nca"
+                                          , "continuous_cols":meta_data["non_cat_features"]
+                                          , "categorical_cols":meta_data["cat_features"] 
+                                    }
+    nca = Learner(learner_name="nca"
+                ,learner_class=WrapTabRepoModels
+                ,instatiator_fn=nca_instantiator
+                ,fit_fn=md_std_fit
+                ,predict_prob_fn=md_std_predict_prob
+    ) 
+    learners.append(nca)
+
+
+    tabm_instantiator = lambda meta_data: {"model":"tabm"
+                                          , "continuous_cols":meta_data["non_cat_features"]
+                                          , "categorical_cols":meta_data["cat_features"] 
+                                    }
+    tabm = Learner(learner_name="tabm"
+                ,learner_class=WrapTabRepoModels
+                ,instatiator_fn=tabm_instantiator
+                ,fit_fn=md_std_fit
+                ,predict_prob_fn=md_std_predict_prob
+    ) 
+    learners.append(tabm)
+
+    
+    ticl_instantiator = lambda meta_data: {"model":"ticl"
+                                          , "continuous_cols":meta_data["non_cat_features"]
+                                          , "categorical_cols":meta_data["cat_features"] 
+                                    }
+    
+    ticl = Learner(learner_name="ticl"
+                ,learner_class=WrapTabRepoModels
+                ,instatiator_fn=ticl_instantiator
+                ,fit_fn=md_std_fit
+                ,predict_prob_fn=md_std_predict_prob
+    ) 
+    learners.append(ticl)
+
+
+    remlp_instantiator = lambda meta_data: {"model":"remlp"
+                                          , "continuous_cols":meta_data["non_cat_features"]
+                                          , "categorical_cols":meta_data["cat_features"] 
+                                    }
+    remlp = Learner(learner_name="remlp"
+                ,learner_class=WrapTabRepoModels
+                ,instatiator_fn=remlp_instantiator
+                ,fit_fn=md_std_fit
+                ,predict_prob_fn=md_std_predict_prob
+    ) 
+    learners.append(remlp)
+
 
     md_mlp_fit = lambda learner, x, y: learner.fit(x[x.columns].astype("float"), y)
     md_mlp_predict_prob = lambda learner, x: learner.predict_proba(x[x.columns].astype("float"))

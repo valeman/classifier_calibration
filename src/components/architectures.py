@@ -105,25 +105,9 @@ class ArchitectureSuite:
     
 
     def init_v1(self) -> None:
-        """Defines the v.1 suite, which contains all combinations of the learners:
-            "svm": Support vector machine
-            "lr": Logistic Regression
-            "knn": K-Nearest Neighbours
-            "rf": RandomForest
-            "cb": Catboost
-            "xgb": XGBoost
-            "lgbm": LightGBM
-            "ttra": TabTransformer
-            "rftpfn": Randomforest TabPFN
-            "mlp": Multilayer Perceptron 
-
-            And the post-processing techniques:
-            "none": No post processing
-            "platt": Platt scaling
-            "isotonic": Isotonic regression
-            "beta": Beta calibration
-            "venn_abers": Venn-abers 
-            "pearsonify": Pearsonify
+        """Defines the v.1 suite, 
+        which contains all combinations of the learners from the v.1 suite
+        and the post-processing techniques from the v.1 suite 
         """
         SEED = self.random_seed
         archs = []
