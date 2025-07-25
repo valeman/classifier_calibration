@@ -13,6 +13,7 @@ import gc
 
 lg = logging.getLogger(__name__)
 
+
 class EvaluationStrategy:
     """
     The EvaluationStrategy standardizes the evaluation of an Architecture using a defined evaluation strategy and performance measurements. 
@@ -29,7 +30,7 @@ class EvaluationStrategy:
             case _:
                 raise NotImplementedError
             
-    def run(self, arch:Architecture) -> list[dict]:
+    def run(self, arch:Architecture, max_time_sec:int=60*60*6) -> list[dict]: 
         results = []
         count = 0
         for x_train, y_train, x_test, y_test in self.gen_sets():
@@ -39,7 +40,7 @@ class EvaluationStrategy:
             
             start_fit = time.perf_counter()
             with ResourceTracker(sample_interval=0.05) as rt:
-                arch.fit(self.ds.meta_data, x_train, y_train)
+                util.run_with_timeout(max_time_sec,arch.fit,self.ds.meta_data, x_train, y_train)
             end_fit = time.perf_counter()
             time_fit = end_fit - start_fit
             rsc_fit = rt.to_dict()
@@ -47,7 +48,7 @@ class EvaluationStrategy:
             gc.collect()
             start_pre = time.perf_counter()
             with ResourceTracker(sample_interval=0.05) as rt:
-                y_prob = arch.predict_prob(x_test)
+                y_prob = util.run_with_timeout(max_time_sec,arch.predict_prob,x_test)
             end_pre = time.perf_counter()
             time_pre = end_pre - start_pre
             rsc_pre = rt.to_dict()

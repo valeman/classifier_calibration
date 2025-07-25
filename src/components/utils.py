@@ -4,7 +4,25 @@ import numpy as np
 import os
 import json
 import random
+import signal
+import time
 
+class TimeoutException(Exception):
+    """Custom exception used specifically for signaling timeouts."""
+    pass
+
+def handler(signum, frame):
+    raise TimeoutException("Run timed out after time limit.")
+
+def run_with_timeout(seconds, func, *args, **kwargs):
+    original_handler = signal.getsignal(signal.SIGALRM)
+    signal.signal(signal.SIGALRM, handler)
+    signal.alarm(seconds)
+    try:
+        return func(*args, **kwargs)
+    finally:
+        signal.alarm(0)  # Disable the alarm
+        signal.signal(signal.SIGALRM, original_handler)
 
 def format_time(seconds):
     if seconds is None:

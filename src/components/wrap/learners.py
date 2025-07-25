@@ -11,32 +11,16 @@ from pytorch_tabular import TabularModel
 from pytorch_tabular.models import TabTransformerConfig
 from pytorch_tabular.config import DataConfig, TrainerConfig, OptimizerConfig
 from tabpfn import TabPFNClassifier 
+from autogluon.common.features.feature_metadata import FeatureMetadata
 from tabrepo.benchmark.models.ag import (ModernNCAModel
                                          , TabMModel
                                          , TabICLModel
                                          , RealMLPModel
 )
 from interpret.glassbox import ExplainableBoostingClassifier
-from autogluon.common.features.feature_metadata import FeatureMetadata
 import pandas as pd
 import numpy as np
 
-
-class WrapEBM:
-    """
-    The WrapEBM class wraps EBM to provide a standard API
-    """
-    def __init__(self, n_features, cat_features_idx, n_jobs, random_state):
-        ftypes = ["nominal" if i in cat_features_idx else "auto" for i in range(n_features)]
-        self.clf = ExplainableBoostingClassifier(feature_types=ftypes
-                                                 ,n_jobs=n_jobs
-                                                 ,random_state=random_state)
-
-    def fit(self,x:pd.DataFrame,y:pd.Series) -> None:
-        self.clf.fit(x.to_numpy(), y.to_numpy())
-  
-    def predict_proba(self,x:pd.DataFrame) -> np.array:
-        self.clf.learner.predict_proba(x.to_numpy())
 
 class WrapTabTransformer:
     """
@@ -121,7 +105,7 @@ class WrapTabRepoModels:
                      , y=y
                      , num_cpus=-1
                      , feature_metadata=self.feature_md
-                     , time_limit=60*60 #1 hour 
+                     , time_limit=60*30 #1/2 hour
                      , verbosity=1
         )
 
@@ -172,16 +156,14 @@ def get_v1(SEED:int):
     ) 
     learners.append(ext)
 
-    ebm_instantiator = lambda meta_data: {"n_features":meta_data["n_columns"]-1
-                                          ,"cat_features_idx":meta_data["cat_features_indices"]
-                                          ,"n_jobs":-1
-                                          ,"random_state":SEED
-                                          }
+    ebm_instantiator = lambda meta_data: {"n_jobs":-1,"random_state":SEED}
+    md_ebm_fit = lambda learner, x, y: learner.fit(x.to_numpy(), y.to_numpy())
+    md_ebm_predict_prob = lambda learner, x: learner.predict_proba(x.to_numpy())
     ebm = Learner(learner_name="ebm"
-                ,learner_class=WrapEBM
+                ,learner_class=ExplainableBoostingClassifier
                 ,instatiator_fn=ebm_instantiator
-                ,fit_fn=md_std_fit
-                ,predict_prob_fn=md_std_predict_prob
+                ,fit_fn=md_ebm_fit
+                ,predict_prob_fn=md_ebm_predict_prob
     ) 
     learners.append(ebm)
 

@@ -16,8 +16,6 @@ class ResourceTracker:
 
     Requires the script to run in its own cgroup (e.g. via systemd-run --user --scope).
     """
-    
-
     def __init__(self, sample_interval=0.1):
         self.sample_interval = sample_interval #Secounds
         self._stop_event = threading.Event()
@@ -132,11 +130,9 @@ class ResourceTracker:
         self.total_io_read_mib = (io_read_end - self.io_read_start) / b_to_mib
         self.total_io_write_mib = (io_write_end - self.io_write_start) / b_to_mib
         
-        
-
+    
 # Example usage:
 if __name__ == "__main__":
-
     def simulate_cpu(duration=2):
         start = time.time()
         while time.time() - start < duration:
