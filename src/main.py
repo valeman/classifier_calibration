@@ -64,7 +64,7 @@ if __name__ == "__main__":
             ds.pre_process("convert_nan_to_0") #Fill nan in numeric features with 0
             lg.info(f"End common pre-processing")
             datasets_metadata[str(ds.df_name)] = ds.meta_data
-           
+            
             inner = progress.add_task("", total=architectures.n_architectures)
             for arch_idx,arch in enumerate(architectures, start=1):
                 arch_desc = f"Architecture {arch_idx}/{architectures.n_architectures}: {arch.name}"
