@@ -66,11 +66,15 @@ python analyse_results.py
 
 ```
 nohup python main.py > out.log 2>&1 &
-
 systemd-run --user --scope --unit=my-python-job python resource_tracker.py
 
-systemd-run --user --unit=my-job --quiet --no-block \
-  bash -c 'python main.py > "$HOME/out.log" 2>&1'
+loginctl enable-linger $(id -un)
+systemd-run --user --unit=job-3 --quiet --no-block \
+  bash -c 'source $HOME/projects/classifier_calibration/venv/bin/activate && python $HOME/projects/classifier_calibration/src/main.py > "$HOME/projects/classifier_calibration/out_3.log" 2>&1'
+
+systemctl --user list-units --type=service
+systemctl --user stop unit.service
+journalctl --user -u job-3.service
 
 
 ps -eo user,%cpu,%mem --sort=user | awk 'NR==1{print;next} {cpu[$1]+=$2; mem[$1]+=$3} END {for (u in cpu) printf "%-15s %6.2f%% CPU  %6.2f%% MEM\n", u, cpu[u], mem[u]}'
