@@ -1,6 +1,6 @@
 from matplotlib.patches import Patch
 from scipy.stats import gaussian_kde
-from itertools import chain
+from itertools import chain, cycle
 from typing import Tuple
 import components.utils as util
 import matplotlib.pyplot as plt
@@ -38,13 +38,24 @@ def sanity_checks() -> dict:
     ,"log_loss":greater_then_excl_0
     ,"auc_roc":greater_then_excl_0
     ,"ece_freq":greater_then_0
-    ,"wall_time_fit_sec":greater_then_excl_0
-    ,"wall_time_predict_sec":greater_then_excl_0
-    ,"cpu_time_user_fit_sec":greater_then_0
-    ,"cpu_time_system_fit_sec":greater_then_0
-    ,"cpu_time_user_predict_sec":greater_then_0
-    ,"cpu_time_system_predict_sec":greater_then_0
-    ,"peak_ram_fit_mb":greater_then_0
+    ,"wall_time_fit_sec": greater_then_excl_0
+    ,"cpu_time_total_fit_sec": greater_then_excl_0
+    ,"cpu_time_user_fit_sec": greater_then_excl_0
+    ,"cpu_time_system_fit_sec": greater_then_0
+    ,"peak_ram_fit_mib": greater_then_excl_0
+    ,"peak_swap_fit_mib": greater_then_0
+    ,"peak_zswap_fit_mib": greater_then_0
+    ,"io_read_total_fit_mib": greater_then_0
+    ,"io_write_total_fit_mib": greater_then_0
+    ,"wall_time_pre_sec": greater_then_excl_0
+    ,"cpu_time_total_pre_sec": greater_then_excl_0
+    ,"cpu_time_user_pre_sec": greater_then_excl_0
+    ,"cpu_time_system_pre_sec": greater_then_0
+    ,"peak_ram_pre_mib": greater_then_0
+    ,"peak_swap_pre_mib": greater_then_0
+    ,"peak_zswap_pre_mib": greater_then_0
+    ,"io_read_total_pre_mib": greater_then_0
+    ,"io_write_total_pre_mib": greater_then_0
     ,"peak_ram_predict_mb":greater_then_0
     }
     return scs
@@ -247,6 +258,25 @@ def calc_expected_ranking(ranking_dict:dict) -> dict:
                 exp_ranking_dict[ds_name][ms_name][arch_name] = exp_rank
     return exp_ranking_dict
 
+def rank_archs(inv_res:dict, ranking_m:dict, agg_key:str, dir_path:str, n_runs:int, archs:list, n_archs:int, post_fix:str="/abs/"):
+    #Probability of an arch having a rank by a measure if you randomly choose a run for a dataset
+    ranking_dict = rank_across_runs_by_ds_me(inv_res, ranking_m, n_runs, archs, n_archs)
+    #Probability of an arch having a rank by a measure if you randomly choose a run and dataset
+    ranking_dict = rank_across_runs_by_me(agg_key, ranking_m, ranking_dict, archs, n_archs)
+    #Probability of an arch having a rank  if you randomly choose a measure, run and dataset
+    ranking_dict = rank_across_runs(agg_key, ranking_dict, archs, n_archs)    
+    #Calculate expected rankings.
+    exp_ranking_dict = calc_expected_ranking(ranking_dict)
+
+    ##Export bar plot of the aggregated expected rankings. 
+    i_dir_path = util.create_pwd_dir(dir_path + post_fix)
+    for ms_name in exp_ranking_dict[agg_key].keys():
+        plot_rankings(exp_ranking_dict[agg_key][ms_name]
+                      ,i_dir_path + f"exp_agg_{ms_name}.png"
+                      ,title=f"Expected performance rank across runs and datasets"
+                      ,x_label=f"Performance measure: {ms_name}")
+    
+
 
 def get_learners(archs:list) -> list:
     learners = set([a.split(".")[0] for a in archs])
@@ -333,7 +363,7 @@ def rel_change(before, marginal):
     if is_effectively_zero(marginal):
         return 0 
     if is_effectively_zero(before):
-        return "Zero divison"
+        return "ZeroDivisionError"
     return (marginal/before) * 100
 
 
@@ -415,16 +445,6 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
         md (dict): A nested dictionary.
             Key is the dataset. Value is a dict with meta data. 
     """
-    #Create dir to store images 
-    dir_path = output_dir + "/" + assets_dir
-    dir_path = util.create_pwd_dir(dir_path)
-    #Get the name of all architectures
-    archs = sorted(list(res.keys()))
-    n_archs = len(archs)
-
-    #Invert res by dataset 
-    inv_res, n_runs = invert_res_by_ds(res)
-    
     ranking_m = {
     "brier_score":False, #False: Ascending | Less is better
     "log_loss":False,
@@ -432,13 +452,11 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     "abs_clip_spiegelhalter_z_statistic":False,
     } 
     comp_cost_m = ["wall_time_fit_sec"
-                   #,"cpu_time_user_fit_sec"
-                   #,"cpu_time_system_fit_sec"
-                   #,"peak_ram_fit_mb"
-                   ,"wall_time_predict_sec"
-                   #,"cpu_time_user_predict_sec"
-                   #,"cpu_time_system_predict_sec"
-                   #,"peak_ram_predict_mb"
+                   ,"cpu_time_total_fit_sec"
+                   ,"peak_ram_fit_mib"
+                   ,"wall_time_pre_sec"
+                   ,"cpu_time_total_pre_sec"
+                   ,"peak_ram_pre_mib"
                    ]
     rel_delta_m = {m:False for m in comp_cost_m}
     rel_delta_m["auc_roc"] = True
@@ -448,25 +466,24 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     "recall_0":True,
     } 
     agg_key = "aggregate"    
+    #Create dir to store images 
+    dir_path = output_dir + "/" + assets_dir
+    dir_path = util.create_pwd_dir(dir_path)
     
     #1:
-    #Probability of an arch having a rank by a measure if you randomly choose a run for a dataset
-    ranking_dict = rank_across_runs_by_ds_me(inv_res, ranking_m, n_runs, archs, n_archs)
-    #Probability of an arch having a rank by a measure if you randomly choose a run and dataset
-    ranking_dict = rank_across_runs_by_me(agg_key, ranking_m, ranking_dict, archs, n_archs)
-    #Probability of an arch having a rank  if you randomly choose a measure, run and dataset
-    ranking_dict = rank_across_runs(agg_key, ranking_dict, archs, n_archs)    
-    #Calculate expected rankings.
-    exp_ranking_dict = calc_expected_ranking(ranking_dict)
-
-    ##Export bar plot of the aggregated expected rankings. 
-    i_dir_path = util.create_pwd_dir(dir_path + "/abs/")
-    for ms_name in exp_ranking_dict[agg_key].keys():
-        plot_rankings(exp_ranking_dict[agg_key][ms_name]
-                      ,i_dir_path + f"exp_agg_{ms_name}.png"
-                      ,title=f"Expected performance rank across runs and datasets"
-                      ,x_label=f"Performance measure: {ms_name}")
-
+    #Get the name of all architectures
+    archs = sorted(list(res.keys()))
+    n_archs = len(archs)
+    #Invert res by dataset 
+    inv_res, n_runs = invert_res_by_ds(res)
+    rank_archs(inv_res, ranking_m, agg_key, dir_path, n_runs, archs, n_archs, post_fix="/abs/archs/")
+    
+    lrns = get_learners(archs)
+    n_lrns = len(lrns)
+    res_lrns = {k:v for k,v in res.items() if k in lrns}
+    inv_res_lrns, _ = invert_res_by_ds(res_lrns)
+    rank_archs(inv_res_lrns, ranking_m, agg_key, dir_path, n_runs, lrns, n_lrns, post_fix="/abs/lrns/")
+    
     #2:
     c_dir_path = util.create_pwd_dir(dir_path + "/cost/")
     for cc_m in comp_cost_m: 
@@ -476,7 +493,6 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     #3: 
     #Transform performance measures into marginals
     marg_inv_res = calc_marginals(inv_res, archs)
-
     #Perform ranking on marginals per post-hoc calibration method across learners and per learner.
     for grouping, i_n_runs, i_n_archs, i_archs, i_marg_inv_res in transform_per_grouping(marg_inv_res, archs):
         #Probability of an arch having a rank by a measure if you randomly choose a run for a dataset
@@ -525,21 +541,28 @@ def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) ->
     """
     #TODO: FILL
     """
+
     archs = get_learners(archs)
-    # Adjust figure size dynamically based on number of legends
-    base_width = 10
-    extra_width = 0.5 * len(archs)  # scale with number of legends
+    
+    y_unit = cc_m.split("_")[-1].lower()
+    y_title  = " ".join(cc_m.split("_")[:-1]).title()
+
     fig_width = 10
     fig_height = 6
     plt.figure(figsize=(fig_width, fig_height))
-
     plt.xscale("log")
     plt.yscale("log")
     plt.xlabel("Number of cells (rows × features)")
-    plt.ylabel(cc_m.replace("_", " ").title() + " (s)")
-    plt.title(cc_m.replace("_", " ").title() + " vs. Problem Size")
+    plt.ylabel(y_title + f" ({y_unit})")
+    plt.title(y_title + " vs. Problem Size")
+
+    marker_cycle = cycle(['o', 's', '^', 'D', 'v', 'P', 'X', '*', 'h', '<', '>'])
+    linestyle_cycle = cycle(['-', '--', '-.', ':'])
 
     for arch in archs:
+        mk = next(marker_cycle)
+        ls = next(linestyle_cycle)
+
         x_vals = []
         y_vals = []
         for ds_name, ds_dict in inv_res.items():
@@ -565,7 +588,7 @@ def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) ->
         scatter = plt.scatter(x_vals, y_vals, alpha=0.3, label=None)
 
         # Overlay less transparent points in same color
-        plt.scatter(x_vals, y_vals, alpha=0.3, color=scatter.get_facecolor()[0], label=None)
+        plt.scatter(x_vals, y_vals, alpha=0.3, color=scatter.get_facecolor()[0], label=None,  marker=mk)
 
         # Fit polynomial in log-log space
         log_x = np.log10(x_vals)
@@ -577,7 +600,7 @@ def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) ->
         y_smooth = 10 ** poly(np.log10(x_smooth))
 
         # Plot polynomial curve
-        plt.plot(x_smooth, y_smooth, color=scatter.get_facecolor()[0],alpha=1, linewidth=2, label=arch)
+        plt.plot(x_smooth, y_smooth, color=scatter.get_facecolor()[0],alpha=1, linewidth=2, label=arch, linestyle=ls)
 
     # Move legend to the right of the plot
     plt.legend(title="Architecture", bbox_to_anchor=(1.02, 1), loc="upper left", fontsize="small", borderaxespad=0.)
@@ -823,14 +846,13 @@ def merge_dicts(output_dir, file_name):
 
 
 if __name__ == "__main__":
-    output_dir = "archive"
+    output_dir = "results"
     assets_dir = "assets"
     
-    #Load all the data
+    #Load files
     res = util.load_dict(output_dir, "results.txt")
     md = util.load_dict(output_dir, "datasets_md.txt")
-    
-    #Merge data from different sources
+    #Load and aggregate files from different sources
     #res = merge_dicts(output_dir, "results.txt")
     #md = merge_dicts(output_dir, "datasets_md.txt")
     
