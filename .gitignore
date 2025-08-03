@@ -248,3 +248,14 @@ $RECYCLE.BIN/
 *.lnk
 
 # End of https://www.toptal.com/developers/gitignore/api/python,windows,macos,linux
+test.py
+.lr_find_*.ckpt
+src/archive*/assets
+notes*
+catboost_info
+lightning_logs
+saved_models
+AutogluonModels
+results
+std.out
+.pt_tmp
