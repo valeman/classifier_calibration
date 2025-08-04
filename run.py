@@ -13,7 +13,7 @@ subprocess.run(["docker", "build", "-t", IMAGE_NAME, "."], check=True)
 
 # Determine the volume mount string
 if platform.system() == "Windows":
-    host_path = OUTPUT_DIR.replace("\\", "/")
+    raise OSError("Host OS must be Linux with cgroupv2")
 else:
     host_path = OUTPUT_DIR
 

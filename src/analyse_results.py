@@ -9,7 +9,8 @@ import math, re
 import numpy as np
 
 matplotlib.use('Agg')
-
+output_dir = "results"
+assets_dir = "assets"
 
 def sanity_checks() -> dict:
     """
@@ -846,9 +847,6 @@ def merge_dicts(output_dir, file_name):
 
 
 if __name__ == "__main__":
-    output_dir = "results"
-    assets_dir = "assets"
-    
     #Load files
     res = util.load_dict(output_dir, "results.txt")
     md = util.load_dict(output_dir, "datasets_md.txt")

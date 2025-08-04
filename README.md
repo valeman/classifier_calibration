@@ -1,12 +1,14 @@
 # classifier_calibration
 
 ## Table of Contents
-- [Installation](#installation)
-- [Usage](#usage)
+- [Requirements](#Requirements)
+- [Usage](#Usage)
+- [Tips](#Tips)
 
-## Installation
+## Requirements
 1. Clone the repository
 2. Install python and docker 
+3. A host machine with Linux and cgroupv2
 
 ## Usage
 To run the project, use the following commands:
@@ -15,83 +17,53 @@ Ensure the repository's root directory is your current working directory.
 ```
 cd your_path/classifier_calibration
 ```
-Ensure your python version is 3.12.*
+Ensure you have docker, python and cgroupv2:
 ```
 python -V 
+docker -v
+stat -fc %T /sys/fs/cgroup
 ```
-Ensure you have virtualenv installed
+Run the python file run.py as a service: 
 ```
-pip install virtualenv
-```
-Create the virtualenv 
-```
-python -m venv venv
-```
-Activate the virtual env.
-If on windows:
-```
-cd venv/Scripts
-activate
-cd ../..
-```
-If on Linux/MacOs:
-```
-source venv/bin/activate
-```
-Install all the requirements
-```
-pip install -r requirements.txt
-```
-Install autogluon seperately to avoid a dependency conflict in numpy
-```
-pip install autogluon.tabular[all]==1.3.1
-```
-make src your current working directory
-```
-cd src
-```
-Run the main.py script to evaluate all the models over all datasets
-```
-python main.py
-```
-Run the analyse_results.py script to produce all plots.
-All plots are exported to /archive/assets/*
-```
-python analyse_results.py
+systemd-run --user --unit=job-1 --quiet --no-block \
+  bash -c 'python run.py > "out.log" 2>&1'
 ```
 
-
-
-## For later
-
+If you don't want to run the project as a docker image replicate the enviornment defined in the Dockerfile.
+Thereafter run:
 ```
-nohup python main.py > out.log 2>&1 &
-systemd-run --user --scope --unit=my-python-job python resource_tracker.py
+systemd-run --user --unit=job-1 --quiet --no-block \
+  bash -c 'cd your_path/classifier_calibration && source venv/bin/activate && python src/main.py > "out.log" 2>&1'
+```
+```
+systemd-run --user --unit=job-1 --quiet --no-block \
+  bash -c 'cd your_path/classifier_calibration && source venv/bin/activate && python src/analyse_results.py > "out.log" 2>&1'
+```
 
+## Tips
+Test and see you're cgroupv2 works as expected. 
+```
+systemd-run --user --scope --unit=my-python-job python src/components/resource_tracker.py
+```
+Enable lingering
+```
 loginctl enable-linger $(id -un)
-systemd-run --user --unit=job-3 --quiet --no-block \
-  bash -c 'source $HOME/projects/classifier_calibration/venv/bin/activate && python $HOME/projects/classifier_calibration/src/main.py > "$HOME/projects/classifier_calibration/out_3.log" 2>&1'
-
+```
+Manage the serivce
+```
 systemctl --user list-units --type=service
-systemctl --user stop unit.service
-journalctl --user -u job-3.service
-
-
+systemctl --user stop job-1.service
+journalctl --user -u job-1.service
+```
+Monitor resource usage 
+```
 ps -eo user,%cpu,%mem --sort=user | awk 'NR==1{print;next} {cpu[$1]+=$2; mem[$1]+=$3} END {for (u in cpu) printf "%-15s %6.2f%% CPU  %6.2f%% MEM\n", u, cpu[u], mem[u]}'
 htop
-
-# 1. Look for the cgroup2 filesystem
-$ grep -E 'cgroup2' /proc/filesystems
-nodev   cgroup2
-
-# 2. Confirm it’s actually mounted
-$ findmnt -t cgroup2 /sys/fs/cgroup
-TARGET        SOURCE    FSTYPE OPTIONS
-/sys/fs/cgroup none      cgroup2 rw,nosuid,nodev,noexec,relatime
-
-# 3. Or check directly:
-$ stat -fc %T /sys/fs/cgroup
-cgroup2fs
-
-
 ```
+
+
+
+
+
+
+
