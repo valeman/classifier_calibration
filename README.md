@@ -8,7 +8,7 @@
 ## Requirements
 1. Clone the repository
 2. Install python and docker 
-3. A host machine with Linux and cgroupv2
+3. A Linux host machine with cgroupv2
 
 ## Usage
 To run the project, use the following commands:
