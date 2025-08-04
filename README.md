@@ -1,4 +1,32 @@
 # classifier_calibration
+Classifier calibration v.1 contains python scripts which evalutes tabular machine learning models on real binary classification problems. Specifically we evaluate the performance of select models and thereafter changes in performance after applying select post-hoc calibration methods trained on a held-out calibration set, over a dataset suite. 
+
+The dataset suite used is the : [TabArena-v0.1 Suite](https://www.openml.org/search?type=study&study_type=task&id=457)
+
+The models examined are:<br><br>
+    Support vector machine<br>
+    Logistic Regression<br>
+    K-Nearest Neighbours<br>
+    RandomForest<br>
+    ExtraTrees<br>
+    Explainable Boosting Machine<br>
+    Catboost<br>
+    XGBoost<br>
+    LightGBM<br>
+    ModernNCA<br>
+    TabTransformer<br>
+    TabICL<br>
+    TabPFN<br>
+    TabM<br>
+    Multilayer Perceptron<br> 
+    Real Multilayer Perceptron<br>
+
+The post-hoc calibration methods examined are:<br><br>
+    Platt scaling<br>
+    Isotonic regression<br>
+    Beta calibration<br>
+    Venn-abers<br>
+    Pearsonify<br>
 
 ## Table of Contents
 - [Requirements](#Requirements)
