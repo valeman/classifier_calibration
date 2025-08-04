@@ -51,10 +51,9 @@ python -V
 docker -v
 stat -fc %T /sys/fs/cgroup
 ```
-Run the python file run.py as a service: 
+Run the shell script run.sh: 
 ```
-systemd-run --user --unit=job-1 --quiet --no-block \
-  bash -c 'python run.py > "out.log" 2>&1'
+./run.sh
 ```
 
 If you don't want to run the project as a docker image replicate the enviornment defined in the Dockerfile.
