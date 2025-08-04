@@ -68,7 +68,7 @@ systemd-run --user --unit=job-1 --quiet --no-block \
 ```
 
 ## Tips
-Test and see you're cgroupv2 works as expected. 
+Test and see your cgroupv2 works as expected. 
 ```
 systemd-run --user --scope --unit=my-python-job python src/components/resource_tracker.py
 ```
