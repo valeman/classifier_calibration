@@ -5,7 +5,20 @@ import os
 import json
 import random
 import signal
-import time
+
+
+def get_max_ram_mib() -> int:
+    """
+    Parse /proc/meminfo on Linux and return max physical RAM in MiB.
+    """
+    with open("/proc/meminfo", "r") as f:
+        for line in f:
+            if line.startswith("MemTotal:"):
+                parts = line.split()
+                total_kib = int(parts[1])
+                total_bytes = total_kib * 1024
+                return total_bytes // (1024 ** 2)
+    raise RuntimeError("MemTotal not found in /proc/meminfo")
 
 class TimeoutException(Exception):
     """Custom exception used specifically for signaling timeouts."""
