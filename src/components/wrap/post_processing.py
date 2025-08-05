@@ -34,16 +34,16 @@ class WrapPearsonify:
         return y_prob.reshape(-1,)
 
 
-def get_pps(suite:str, random_seed:int=123):
+def get_pps(suite:str, random_seed:int=123, n_cores:int=-1):
     match suite:
         case "v.1":
-            pps = get_v1(random_seed)
+            pps = get_v1(random_seed, n_cores)
         case _:
             raise NotImplementedError
     return pps
 
 
-def get_v1(SEED:int):
+def get_v1(SEED:int, n_cores:int=-1):
     """
     "none": No post processing
     "platt": Platt scaling
@@ -57,7 +57,7 @@ def get_v1(SEED:int):
     pp_std_predict_prob = lambda learner, y: learner.predict_proba(y)
     pp_std_predict = lambda learner, y: learner.predict(y)
     
-    lr_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
+    lr_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":n_cores}
     platt_scaling = PostProcessing(
         pp_name="platt"
         ,pp_class = LogisticRegression

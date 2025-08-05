@@ -9,7 +9,7 @@ import os
 base_tmp = tempfile.gettempdir() 
 cache_dir = os.path.join(base_tmp, "download_cache")  
 cache = Cache(directory=cache_dir)
-cache_exp = 3600
+cache_exp = 3600 #1 hour
 
 @cache.memoize(expire=cache_exp)
 def get_openml_task(taskid:int)-> tuple[pd.DataFrame,list[str]]:

@@ -40,8 +40,9 @@ if __name__ == "__main__":
     lg.info("Defining experiment")
     datasets = DatasetSuite(ds_suite_name, random_seed=SEED)
     p_measures = PerformanceMeasures(study_version)
-    architectures = ArchitectureSuite(study_version, random_seed=SEED)
+    architectures = ArchitectureSuite(study_version, random_seed=SEED, n_cores=n_cores)
     datasets_metadata = {}
+    experiment_metadata = {"machine_md":{"n_cores":n_cores}, "random_seed":SEED}
     results = {}
 
     lg.info(f"Starting experiment: {util.time_now()}")
@@ -100,5 +101,6 @@ if __name__ == "__main__":
     lg.info("Export results")
     util.save_dict_to_disk(results, output_dir, "results.txt")
     util.save_dict_to_disk(datasets_metadata, output_dir, "datasets_md.txt")
+    util.save_dict_to_disk(experiment_metadata, output_dir, "experiment_md.txt")
     
     

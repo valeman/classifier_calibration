@@ -85,7 +85,9 @@ class WrapTabRepoModels:
     def __init__(self, model:str
             , continuous_cols:list[str]
             , categorical_cols:list[str]
+            , n_cores:int=-1
             ):
+        self.n_cores = n_cores
         ftypes = {}
         ftypes.update({c:"category" for c in categorical_cols})
         ftypes.update({c:"float" for c in continuous_cols})
@@ -106,7 +108,7 @@ class WrapTabRepoModels:
     def fit(self,x:pd.DataFrame,y:pd.Series) -> None:
         self.clf.fit(X=x
                      , y=y
-                     , num_cpus=-1
+                     , num_cpus=self.n_cores
                      , feature_metadata=self.feature_md
                      , time_limit=60*30 #1/2 hour
                      , verbosity=1
@@ -116,16 +118,16 @@ class WrapTabRepoModels:
         return self.clf.predict_proba(X=x)
 
 
-def get_learners(suite:str, random_seed:int=123):
+def get_learners(suite:str, random_seed:int=123, n_cores:int=-1):
     match suite:
         case "v.1":
-            learners = get_v1(random_seed)
+            learners = get_v1(random_seed, n_cores)
         case _:
             raise NotImplementedError
     return learners
 
 
-def get_v1(SEED:int):
+def get_v1(SEED:int, n_cores:int=-1):
     """
     "svm": Support vector machine
     "lr": Logistic Regression
@@ -150,7 +152,7 @@ def get_v1(SEED:int):
     
 
     
-    ext_instantiator = lambda meta_data: {"random_state":SEED ,"n_jobs":-1}
+    ext_instantiator = lambda meta_data: {"random_state":SEED ,"n_jobs":n_cores}
     ext = Learner(learner_name="ext"
                 ,learner_class=ExtraTreesClassifier
                 ,instatiator_fn=ext_instantiator
@@ -159,7 +161,7 @@ def get_v1(SEED:int):
     ) 
     learners.append(ext)
 
-    ebm_instantiator = lambda meta_data: {"n_jobs":-1,"random_state":SEED}
+    ebm_instantiator = lambda meta_data: {"n_jobs":n_cores,"random_state":SEED}
     md_ebm_fit = lambda learner, x, y: learner.fit(x.to_numpy(), y.to_numpy())
     md_ebm_predict_prob = lambda learner, x: learner.predict_proba(x.to_numpy())
     ebm = Learner(learner_name="ebm"
@@ -172,7 +174,7 @@ def get_v1(SEED:int):
 
 
     cb_instantiator = lambda meta_data: {"random_seed":SEED
-                                            ,"thread_count":-1
+                                            ,"thread_count":n_cores
                                             ,"verbose":False
                                             ,"cat_features":meta_data["cat_features"]}
     cb = Learner(learner_name="cb"
@@ -183,7 +185,7 @@ def get_v1(SEED:int):
     ) 
     learners.append(cb)
     
-    rf_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
+    rf_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":n_cores}
     rf = Learner(learner_name="rf"
                 ,learner_class=RandomForestClassifier
                 ,instatiator_fn=rf_instantiator
@@ -193,7 +195,7 @@ def get_v1(SEED:int):
     learners.append(rf) 
 
     
-    xgb_instantiator = lambda meta_data: {"random_state":SEED, "enable_categorical":True, "n_jobs":-1}
+    xgb_instantiator = lambda meta_data: {"random_state":SEED, "enable_categorical":True, "n_jobs":n_cores}
     xgb = Learner(learner_name="xgb"
                 ,learner_class=XGBClassifier
                 ,instatiator_fn=xgb_instantiator
@@ -205,7 +207,7 @@ def get_v1(SEED:int):
     md_lgbm_fit = lambda learner, x, y: learner.fit(x, y
                                                     , categorical_feature=x.select_dtypes(include='category').columns.tolist()
                                                     )
-    lgbm_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
+    lgbm_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":n_cores}
     lgbm = Learner(learner_name="lgbm"
                 ,learner_class=LGBMClassifier
                 ,instatiator_fn=lgbm_instantiator
@@ -214,7 +216,7 @@ def get_v1(SEED:int):
     )
     learners.append(lgbm) 
 
-    lr_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":-1}
+    lr_instantiator = lambda meta_data: {"random_state":SEED, "n_jobs":n_cores}
     md_lr_fit = lambda learner, x, y: learner.fit(x[x.columns].astype("float"), y)
     md_lr_predict_prob = lambda learner, x: learner.predict_proba(x[x.columns].astype("float"))
     lr = Learner(learner_name="lr"
@@ -225,7 +227,7 @@ def get_v1(SEED:int):
     ) 
     learners.append(lr)
     
-    knn_instantiator = lambda meta_data: {"n_jobs":-1}
+    knn_instantiator = lambda meta_data: {"n_jobs":n_cores}
     knn = Learner(learner_name="knn"
                 ,learner_class=KNeighborsClassifier
                 ,instatiator_fn=knn_instantiator
@@ -246,6 +248,7 @@ def get_v1(SEED:int):
     nca_instantiator = lambda meta_data: {"model":"nca"
                                           , "continuous_cols":meta_data["non_cat_features"]
                                           , "categorical_cols":meta_data["cat_features"] 
+                                          ,"n_cores":n_cores
                                     }
     nca = Learner(learner_name="nca"
                 ,learner_class=WrapTabRepoModels
@@ -259,6 +262,7 @@ def get_v1(SEED:int):
     tabm_instantiator = lambda meta_data: {"model":"tabm"
                                           , "continuous_cols":meta_data["non_cat_features"]
                                           , "categorical_cols":meta_data["cat_features"] 
+                                          , "n_cores":n_cores
                                     }
     tabm = Learner(learner_name="tabm"
                 ,learner_class=WrapTabRepoModels
@@ -272,6 +276,7 @@ def get_v1(SEED:int):
     ticl_instantiator = lambda meta_data: {"model":"ticl"
                                           , "continuous_cols":meta_data["non_cat_features"]
                                           , "categorical_cols":meta_data["cat_features"] 
+                                          , "n_cores":n_cores
                                     }
     
     ticl = Learner(learner_name="ticl"
@@ -286,6 +291,7 @@ def get_v1(SEED:int):
     remlp_instantiator = lambda meta_data: {"model":"remlp"
                                           , "continuous_cols":meta_data["non_cat_features"]
                                           , "categorical_cols":meta_data["cat_features"] 
+                                          , "n_cores":n_cores
                                     }
     remlp = Learner(learner_name="remlp"
                 ,learner_class=WrapTabRepoModels
@@ -314,7 +320,7 @@ def get_v1(SEED:int):
                                             , "auto_lr_find":False
                                             , "batch_size":1024
                                             , "max_epochs":20
-                                            , "devices":-1
+                                            , "devices":n_cores
                                             , "verbose":False
     }
     
@@ -334,7 +340,7 @@ def get_v1(SEED:int):
         "inference_config": {"SUBSAMPLE_SAMPLES": 10000},
         "fit_mode":"low_memory",
         "memory_saving_mode":"auto",
-        "n_jobs":-1
+        "n_jobs":n_cores
     }
     tpfn = Learner(learner_name="tabpfn"
                 ,learner_class=TabPFNClassifier

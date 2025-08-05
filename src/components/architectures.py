@@ -89,11 +89,12 @@ class ArchitectureSuite:
     The ArchitectureSuite class defines a collection of architectures (a suite) and returns each achitecture iteratively.
     All architectures are wrapped around the architecture class to provide a standard API. 
     """
-    def __init__(self, suite_name:str, random_seed:int=123):
+    def __init__(self, suite_name:str, random_seed:int=123, n_cores:int=-1):
         self.suite_name = suite_name
         self.architectures = []
         self.n_architectures = None
         self.random_seed = random_seed
+        self.n_cores = n_cores
         match suite_name:
             case "v.1":
                 self.init_v1()
@@ -110,10 +111,11 @@ class ArchitectureSuite:
         and the post-processing techniques from the v.1 suite 
         """
         SEED = self.random_seed
+        n_cores = self.n_cores
         archs = []
 
-        learners = get_learners(suite="v.1",random_seed=SEED)
-        phc = get_pps(suite="v.1",random_seed=SEED)
+        learners = get_learners(suite="v.1",random_seed=SEED, n_cores=n_cores)
+        phc = get_pps(suite="v.1",random_seed=SEED, n_cores=n_cores)
 
         for l in learners:
             for p in phc:
