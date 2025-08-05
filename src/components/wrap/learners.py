@@ -52,6 +52,8 @@ class WrapTabTransformer:
             batch_size=batch_size,
             max_epochs=max_epochs,
             devices=devices,
+            progress_bar='none',
+            seed=random_state,
         )
         optimizer_config = OptimizerConfig()
         

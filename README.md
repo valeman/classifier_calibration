@@ -80,6 +80,7 @@ Manage the serivce
 ```
 systemctl --user list-units --type=service
 systemctl --user stop job-1.service
+systemctl --user reset-failed
 journalctl --user -u job-1.service
 ```
 Monitor resource usage 

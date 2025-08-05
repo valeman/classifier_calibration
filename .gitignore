@@ -257,5 +257,6 @@ lightning_logs
 saved_models
 AutogluonModels
 results
+results_*
 std.out
 .pt_tmp
