@@ -42,7 +42,7 @@ if __name__ == "__main__":
     p_measures = PerformanceMeasures(study_version)
     architectures = ArchitectureSuite(study_version, random_seed=SEED, n_cores=n_cores)
     datasets_metadata = {}
-    experiment_metadata = {"machine_md":{"n_cores":n_cores, "max_ram_mib":util.get_max_ram_mib()}, "random_seed":SEED}
+    experiment_metadata = {"machine_md":{"n_cores":int(n_cores), "max_ram_mib":util.get_max_ram_mib()}, "random_seed":SEED}
     results = {}
 
     lg.info(f"Starting experiment: {util.time_now()}")
