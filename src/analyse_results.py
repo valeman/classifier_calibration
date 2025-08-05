@@ -1,3 +1,4 @@
+from matplotlib.ticker import FuncFormatter
 from matplotlib.patches import Patch
 from scipy.stats import gaussian_kde
 from itertools import chain, cycle
@@ -468,7 +469,7 @@ def analyse_results(res:dict, ds_md:dict, exp_md:dict, output_dir:str, assets_di
     ranking_m = {
     "brier_score":False, #False: Ascending | Less is better
     "log_loss":False,
-    "eci_global":True, #False: Descending | More is better
+    "eci_global":True, #True: Descending | More is better
     "abs_clip_spiegelhalter_z_statistic":False,
     } 
     comp_cost_m = ["wall_time_fit_sec"
@@ -477,6 +478,11 @@ def analyse_results(res:dict, ds_md:dict, exp_md:dict, output_dir:str, assets_di
                    ,"wall_time_pre_sec"
                    ,"cpu_time_total_pre_sec"
                    ,"peak_ram_pre_mib"
+                   ]
+    comp_util_m = ["cpu_time_total_fit_util_pct"
+                   ,"peak_ram_fit_util_pct"
+                   ,"cpu_time_total_pre_util_pct"
+                   ,"peak_ram_pre_util_pct"
                    ]
     rel_delta_m = {m:False for m in comp_cost_m}
     rel_delta_m["auc_roc"] = True
@@ -511,7 +517,11 @@ def analyse_results(res:dict, ds_md:dict, exp_md:dict, output_dir:str, assets_di
     for cc_m in comp_cost_m: 
         outfile = f'{c_dir_path}/{cc_m}.png'
         plot_scatter_cc(inv_res, ds_md, archs, cc_m, outfile)
-        
+    
+    cu_dir_path = util.create_pwd_dir(dir_path + "/cost/util/")
+    for cu_m in comp_util_m:
+        plot_box_cu(res, archs, cu_m, cu_dir_path)
+
     #3: 
     #Transform performance measures into marginals
     marg_inv_res = calc_marginals(inv_res, archs)
@@ -631,6 +641,60 @@ def plot_scatter_cc(inv_res:dict, ds_md:dict, archs:list, cc_m:str, outfile:str)
     plt.savefig(outfile, dpi=300, bbox_inches='tight')
     plt.close()
 
+
+def plot_box_cu(res: dict, archs: list, cu_m: str, output_path: str) -> None:
+    """
+    Plots a two-dimensional grid of box-plots where each row is a learner
+    and each column is a post-hoc calibration method.  Each cell shows the
+    distribution (across all datasets and runs) of the measure `cu_m`.
+
+    Exports a PNG figure to: output_path + cu_m + ".png"
+
+    Args:
+        res (dict): Nested results { arch_key: { ds_name: [run_dicts,…] , … }, … }
+        archs (list): List of arch keys like "lrn.phc" or "lrn"
+        cu_m (str):   The measure name to plot (must exist in each run dict)
+        output_path (str):  Base folder for output
+    """
+    lrns = get_learners(archs)   
+    phcms = get_phcm(archs)      
+    phcms.insert(0, "none")
+    n_rows = len(lrns)
+    n_cols = len(phcms)
+
+    fig, axes = plt.subplots(
+        n_rows, n_cols,
+        figsize=(4*n_cols, 3*n_rows),
+        squeeze=False,
+        sharey=True
+    )
+    pct_formatter = FuncFormatter(lambda y, _: f"{y:.0f}%")
+    
+    for i, lrn in enumerate(lrns):
+        for j, phc in enumerate(phcms):
+            arch_key = f"{lrn}.{phc}" if phc and phc != "none" else lrn
+
+            values = []
+            ds_dict = res[arch_key]
+            for runs in ds_dict.values():
+                for run in runs:
+                    values.append(run[cu_m])
+
+            ax = axes[i][j]
+            ax.boxplot(values, vert=True)
+            ax.set_xticks([])
+            ax.yaxis.set_major_formatter(pct_formatter)
+            
+            ax.set_title(phc if phc and phc != "none" else "none")
+            if j == 0:
+                ax.set_ylabel(lrn)
+
+    fig.suptitle(f"Distribution of {cu_m}", fontsize=16)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+
+    out_file = output_path + f"{cu_m}.png"
+    fig.savefig(out_file)
+    plt.close(fig)
 
 
 def plot_rankings(data: dict, outfile: str, title:str, x_label:str, top_n: int = 5, bottom_n: int = 5) -> None:
