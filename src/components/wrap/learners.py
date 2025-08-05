@@ -63,6 +63,7 @@ class WrapTabTransformer:
             ,optimizer_config=optimizer_config
             ,trainer_config=trainer_config
             ,verbose=verbose
+            ,suppress_lightning_logger=not verbose
         )
     
     def fit(self,x:pd.DataFrame,y:pd.Series) -> None:
