@@ -1,11 +1,18 @@
+from diskcache import Cache
 import components.utils as util
 import pandas as pd
 import numpy as np
+import tempfile
 import openml
+import os
 
+base_tmp = tempfile.gettempdir() 
+cache_dir = os.path.join(base_tmp, "download_cache")  
+cache = Cache(directory=cache_dir)
+cache_exp = 3600
 
-
-def get_openml_task(taskid:int)-> tuple[pd.DataFrame,list]:
+@cache.memoize(expire=cache_exp)
+def get_openml_task(taskid:int)-> tuple[pd.DataFrame,list[str]]:
     """
     Get the dataset of a taskid from openml and select metadata
 
@@ -15,12 +22,25 @@ def get_openml_task(taskid:int)-> tuple[pd.DataFrame,list]:
     Returns:
         tuple[pd.DataFrame,list]: The dataset and which columns are categorical
     """
-    task = openml.tasks.get_task(taskid)
-    ds = task.get_dataset()
-    df, _, cat_features, _ =  ds.get_data()
-    cat_columns = [i for i,j in zip(df.columns, cat_features) if j]
-    return df, cat_columns  
+    try:
+        task = openml.tasks.get_task(taskid)
+        ds = task.get_dataset()
+        df, _, cat_features, _ =  ds.get_data()
+        cat_columns = [i for i,j in zip(df.columns, cat_features) if j]
+        return df, cat_columns  
+    except Exception:
+        cache.evict((taskid, ))
+        raise
 
+@cache.memoize(expire=cache_exp)
+def get_openml_study(studyid:int) -> pd.DataFrame:
+    try:
+        suite = openml.study.get_suite(studyid) 
+        tasks = openml.tasks.list_tasks(task_id=suite.tasks, output_format="dataframe")
+        return tasks
+    except Exception:
+        cache.evict((studyid, ))
+        raise
 
 def detect_categorical_columns(df:pd.DataFrame, sample_size:int = 100, fail_threshold:float = 0.5, random_seed:int=123) -> list:
     """
@@ -306,8 +326,7 @@ class DatasetSuite:
         """
         Collects the classification tasks (datasets) of the TabArena-v0.1 Suite
         """
-        suite = openml.study.get_suite(457) #Study: TabArena-v0.1 Suite
-        tasks = openml.tasks.list_tasks(task_id=suite.tasks, output_format="dataframe")
+        tasks = get_openml_study(studyid=457) #Study: TabArena-v0.1 Suite
         class_tasks = tasks[tasks["task_type"] == "Supervised Classification"]
         class_tasks = class_tasks[["tid", "name","NumberOfClasses", "target_feature"]]
         class_tasks = class_tasks.reset_index(drop=True)
