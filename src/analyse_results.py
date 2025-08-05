@@ -62,12 +62,13 @@ def sanity_checks() -> dict:
     return scs
 
 
-def qc_input(res:dict, md:dict) -> None:
-    """Quality control the res and md dict to ensure everything is there and is as expected.
+def qc_input(res:dict, ds_md:dict, exp_md:dict) -> None:
+    """Quality control the res,ds_md and exp_md dict to ensure everything is there and is as expected.
 
     Args:
         res (dict): The results dict output from main.py
-        md (dict): The meta_data dict output from main.py
+        ds_md (dict): The datasets meta_data dict output from main.py
+        exp_md (dict): The experiment meta_data dict output from main.py
     """
     #Check that all architectures are in the res dict
     if len(res.keys()) != 96:
@@ -100,6 +101,22 @@ def qc_input(res:dict, md:dict) -> None:
                     if eval:
                         print(f"ValueError: Run {i} ({arch} on {ds}): {measure!r}={value!r}  Value {eval}")      
 
+
+def enrich_res(res:dict, ds_md:dict, exp_md:dict):
+    """
+    Enriches res by deriving new performance measures from the results and meta data.
+    """
+    n_cores = exp_md["machine_md"]["n_cores"]
+    max_ram = exp_md["machine_md"]["max_ram_mib"]
+
+    for arch_name, ds_dict in res.items():    
+        for ds_name, runs in ds_dict.items():
+            for run in runs:
+                for stage in ["fit", "pre"]:
+                    max_cpu_time_total_sec = run[f"wall_time_{stage}_sec"] * n_cores 
+                    run[f"cpu_time_total_{stage}_util_pct"] = (run[f"cpu_time_total_{stage}_sec"]/max_cpu_time_total_sec) * 100
+                    run[f"peak_ram_{stage}_util_pct"] = (run[f"peak_ram_{stage}_mib"]/max_ram) *100
+    return res
 
 def invert_res_by_ds(res:dict) -> Tuple[dict,int]:
     """
@@ -401,9 +418,9 @@ def calc_relative(inv_res:dict, marg_inv_res:dict, archs:list) -> dict:
     return rel_inv_res
 
 
-def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
+def analyse_results(res:dict, ds_md:dict, exp_md:dict, output_dir:str, assets_dir:str) -> None:
     """
-    Takes the performance measures in res and metadata in md to produce and export the below analysis:
+    Takes the performance measures in res and metadata in ds_md and exp_md to produce and export the below analysis:
 
     Note: Ranking is performed by placing each arch for a dataset and run in a relative position (1st, 2nd, 3rd...) according to a performance measure.
     An arch's probability of being in a position is the empirical frequency: (number of runs in a position)/(total runs). (runs/folds)
@@ -443,8 +460,10 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
                 Value is a list. For the inner list:
                     Each element is a dict. For the inner dict:
                         Key is the measure name. Value is the measure's numeric value.
-        md (dict): A nested dictionary.
+        ds_md (dict): A nested dictionary.
             Key is the dataset. Value is a dict with meta data. 
+        exp_md (dict): A nested dictionary.
+            Contains seeds, machine specs etc. 
     """
     ranking_m = {
     "brier_score":False, #False: Ascending | Less is better
@@ -471,6 +490,8 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     dir_path = output_dir + "/" + assets_dir
     dir_path = util.create_pwd_dir(dir_path)
     
+    res = enrich_res(res, ds_md, exp_md)
+
     #1:
     #Get the name of all architectures
     archs = sorted(list(res.keys()))
@@ -489,7 +510,7 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
     c_dir_path = util.create_pwd_dir(dir_path + "/cost/")
     for cc_m in comp_cost_m: 
         outfile = f'{c_dir_path}/{cc_m}.png'
-        plot_scatter_cc(inv_res, md, archs, cc_m, outfile)
+        plot_scatter_cc(inv_res, ds_md, archs, cc_m, outfile)
         
     #3: 
     #Transform performance measures into marginals
@@ -538,7 +559,7 @@ def analyse_results(res:dict, md:dict, output_dir:str, assets_dir:str) -> None:
         plot_changes(i_marg_inv_res, marg_delta_m, i_dir_path, grouping, change="marg")
    
 
-def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) -> None:
+def plot_scatter_cc(inv_res:dict, ds_md:dict, archs:list, cc_m:str, outfile:str) -> None:
     """
     #TODO: FILL
     """
@@ -568,10 +589,10 @@ def plot_scatter_cc(inv_res:dict, md:dict, archs:list, cc_m:str, outfile:str) ->
         y_vals = []
         for ds_name, ds_dict in inv_res.items():
             if "fit" in cc_m:
-                n_inst = round(md[ds_name]["n_rows"] * 4/5) #TODO: Pass down from main
+                n_inst = round(ds_md[ds_name]["n_rows"] * 4/5) #TODO: Pass down from main
             else:
-                n_inst = round(md[ds_name]["n_rows"] * 1/5)
-            n_features = md[ds_name]["n_columns"] - 1
+                n_inst = round(ds_md[ds_name]["n_rows"] * 1/5)
+            n_features = ds_md[ds_name]["n_columns"] - 1
             n_cells = n_inst * n_features
 
             x_run = []
@@ -849,16 +870,17 @@ def merge_dicts(output_dir, file_name):
 if __name__ == "__main__":
     #Load files
     res = util.load_dict(output_dir, "results.txt")
-    md = util.load_dict(output_dir, "datasets_md.txt")
+    ds_md = util.load_dict(output_dir, "datasets_md.txt")
+    exp_md = util.load_dict(output_dir, "experiment_md.txt")
     #Load and aggregate files from different sources
     #res = merge_dicts(output_dir, "results.txt")
     #md = merge_dicts(output_dir, "datasets_md.txt")
     
     #Make sure all the data is there and makes sense
-    qc_input(res, md)
-
+    qc_input(res, ds_md, exp_md)
+    
     #Analyse the data and export results 
-    analyse_results(res, md, output_dir, assets_dir)
+    analyse_results(res, ds_md, exp_md, output_dir, assets_dir)
     
 
     
