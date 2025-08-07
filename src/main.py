@@ -30,8 +30,9 @@ os.environ["MKL_NUM_THREADS"] = n_cores
 os.environ["NUMEXPR_NUM_THREADS"] = n_cores
 os.environ["VECLIB_MAXIMUM_THREADS"] = n_cores  
 os.environ["KMP_AFFINITY"] = "noverbose"
-set_num_interop_threads(int(n_cores))
-set_num_threads(int(n_cores))
+n_cores = int(n_cores)
+set_num_interop_threads(n_cores)
+set_num_threads(n_cores)
 
 
 if __name__ == "__main__":
@@ -42,7 +43,7 @@ if __name__ == "__main__":
     p_measures = PerformanceMeasures(study_version)
     architectures = ArchitectureSuite(study_version, random_seed=SEED, n_cores=n_cores)
     datasets_metadata = {}
-    experiment_metadata = {"machine_md":{"n_cores":int(n_cores), "max_ram_mib":util.get_max_ram_mib()}, "random_seed":SEED}
+    experiment_metadata = {"machine_md":{"n_cores":n_cores, "max_ram_mib":util.get_max_ram_mib()}, "random_seed":SEED}
     results = {}
 
     lg.info(f"Starting experiment: {util.time_now()}")
