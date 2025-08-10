@@ -74,7 +74,7 @@ sudo systemctl start docker
 ```
 Test and see your cgroupv2 works as expected. 
 ```
-systemd-run --user --scope --unit=my-python-job python src/components/resource_tracker.py
+systemd-run --user --scope --unit=my-python-job python src/modules/common/resource_tracker.py
 ```
 Enable lingering
 ```
