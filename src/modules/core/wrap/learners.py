@@ -1,4 +1,4 @@
-from components.wrap.wrappers import Learner
+from modules.wrap.wrappers import Learner
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
@@ -350,5 +350,6 @@ def get_v1(SEED:int, n_cores:int=-1):
                 ,pre_trained=True
     ) 
     learners.append(tpfn)
-
+    learners = [l for l in learners if l.learner_name in ["tabpfn"]]
+    
     return learners

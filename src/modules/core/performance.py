@@ -1,6 +1,6 @@
 from pycaleva import CalibrationEvaluator
 from calfram.calibration_framework import CalibrationFramework
-from components.utils import all_numbers_and_finite
+from modules.common.utils import all_numbers_and_finite
 import sklearn.metrics as skm 
 import pandas as pd
 import numpy as np
@@ -82,7 +82,7 @@ class PerformanceMeasures:
                                                     ,y_pred # shape: (n,)
             )
         
-            measures, _ = caf.calibrationdiagnosis(classes_scores, adaptive=True #automatic monotonic sweep method
+            measures, _ = caf.calibrationdiagnosis(classes_scores, adaptive=True #Binning by automatic monotonic sweep method
             )
             class_wise_metrics = caf.classwise_calibration(measures)
             measure = None

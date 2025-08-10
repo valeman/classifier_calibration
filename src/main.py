@@ -1,11 +1,11 @@
 from torch import manual_seed, set_num_threads, set_num_interop_threads
-from components.log_config import configure_logger, log_progress_snapshot 
-from components.performance import PerformanceMeasures
-from components.architectures import ArchitectureSuite
-from components.eval_strat import EvaluationStrategy
-from components.data import DatasetSuite
+from modules.common.log_config import configure_logger, log_progress_snapshot 
+from modules.core.performance import PerformanceMeasures
+from modules.core.architectures import ArchitectureSuite
+from modules.core.eval_strat import EvaluationStrategy
+from modules.core.data import DatasetSuite
 from multiprocessing import cpu_count
-import components.utils as util
+import modules.common.utils as util
 import os, traceback, time
 from random import seed
 from numpy import random
@@ -14,7 +14,7 @@ SEED = 123456789
 ds_suite_name = "Tabarena-v0.1-binary"
 eval_strat_name = "5-fold-CV"
 study_version = "v.1"
-output_dir = "results"
+output_dir = "results_2_1"
 
 os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1") #Unsafe. Don't do this in prod.
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = str(0)

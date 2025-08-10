@@ -1,5 +1,5 @@
 from diskcache import Cache
-import components.utils as util
+import modules.common.utils as util
 import pandas as pd
 import numpy as np
 import tempfile

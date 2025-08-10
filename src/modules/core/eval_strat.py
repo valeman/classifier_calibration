@@ -1,10 +1,10 @@
 from sklearn.model_selection import StratifiedKFold
 from typing import Generator
-from components.data import Dataset 
-from components.architectures import Architecture
-from components.performance import PerformanceMeasures
-from components.resource_tracker import ResourceTracker
-import components.utils as util
+from modules.core.data import Dataset 
+from modules.core.architectures import Architecture
+from modules.core.performance import PerformanceMeasures
+from modules.common.resource_tracker import ResourceTracker
+import modules.common.utils as util
 import pandas as pd
 import numpy as np
 import logging
@@ -30,7 +30,7 @@ class EvaluationStrategy:
             case _:
                 raise NotImplementedError
             
-    def run(self, arch:Architecture, max_time_sec:int=60*60*6) -> list[dict]: 
+    def run(self, arch:Architecture, max_time_sec:int=60*60*6*3) -> list[dict]: 
         results = []
         count = 0
         for x_train, y_train, x_test, y_test in self.gen_sets():
