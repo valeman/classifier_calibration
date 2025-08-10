@@ -14,7 +14,7 @@ SEED = 123456789
 ds_suite_name = "Tabarena-v0.1-binary"
 eval_strat_name = "5-fold-CV"
 study_version = "v.1"
-output_dir = "results_2_1"
+output_dir = "results"
 
 os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1") #Unsafe. Don't do this in prod.
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = str(0)

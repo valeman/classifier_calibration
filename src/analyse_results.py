@@ -15,7 +15,7 @@ from typing import Tuple
 import math, re
 import numpy as np
 
-output_dir = "archive/results_2" #TODO:AMEND
+output_dir = "results"
 assets_dir = "assets"
 
 def sanity_checks() -> dict:

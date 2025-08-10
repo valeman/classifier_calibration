@@ -1,6 +1,6 @@
-from modules.wrap.wrappers import Learner, PostProcessing, PreProcessing
-from modules.wrap.learners import get_learners
-from modules.wrap.post_processing import get_pps
+from modules.core.wrap.wrappers import Learner, PostProcessing, PreProcessing
+from modules.core.wrap.learners import get_learners
+from modules.core.wrap.post_processing import get_pps
 from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np

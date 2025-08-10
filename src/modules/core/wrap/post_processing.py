@@ -1,4 +1,4 @@
-from modules.wrap.wrappers import PostProcessing
+from modules.core.wrap.wrappers import PostProcessing
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from betacal import BetaCalibration
