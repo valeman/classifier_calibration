@@ -20,6 +20,8 @@ volume_arg = f"{OUTPUT_DIR}:/app/results"
 subprocess.run([
     "docker", "run",
     "--rm",
+    "--cgroupns=host",
+    "-v", "/sys/fs/cgroup:/sys/fs/cgroup:ro",
     "-v", volume_arg,
     IMAGE_NAME
 ], check=True)

@@ -36,7 +36,7 @@ The post-hoc calibration methods examined are:<br>
 ## Requirements
 1. Clone the repository
 2. Install python and docker 
-3. A Linux host machine with cgroupv2
+3. A Linux virtual/host machine with cgroupv2 or WSL2
 
 ## Usage
 To run the project, use the following commands:
@@ -68,6 +68,10 @@ systemd-run --user --unit=job-1 --quiet --no-block \
 ```
 
 ## Tips
+Add Your User to the Docker Group
+```
+sudo usermod -aG docker $USER
+```
 Start the docker daemon
 ```
 sudo systemctl start docker
@@ -83,6 +87,7 @@ loginctl enable-linger $(id -un)
 Manage the serivce
 ```
 systemctl --user list-units --type=service
+systemctl --user status job-1
 systemctl --user stop job-1.service
 systemctl --user reset-failed
 journalctl --user -u job-1.service

@@ -68,21 +68,23 @@ class ResourceTracker:
     
     def _read_memory(self, prev_peak, file_name):
         mem_path = os.path.join(self.cgroup_path, file_name)
-        new_peak = 0
-        with open(mem_path) as f:
-            current = int(f.read().strip())
-            if current > prev_peak:
-                new_peak = current
-            else:
-                new_peak = prev_peak
-        return new_peak
+        try:
+            with open(mem_path) as f:
+                current = int(f.read().strip())
+                if current > prev_peak:
+                    new_peak = current
+                else:
+                    new_peak = prev_peak
+            return new_peak
+        except FileNotFoundError:
+            return f"file not found: {mem_path}"
 
     def _sample_memory(self):
         while not self._stop_event.is_set():
             try:
                 self.max_r_memory = self._read_memory(self.max_r_memory, "memory.current")
-                self.max_zs_memory = self._read_memory(self.max_zs_memory, "memory.zswap.current")
                 self.max_s_memory = self._read_memory(self.max_s_memory, "memory.swap.current")
+                self.max_zs_memory = self._read_memory(self.max_zs_memory, "memory.zswap.current")
             except Exception as e:
                 lg.warning(f"Memory sampling failed: {e}")
             time.sleep(self.sample_interval)

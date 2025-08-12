@@ -1,13 +1,16 @@
 # Use official Python image
 FROM python:3.12-slim
 
-# Install git (required for pip to install from git+https) and libgomp1
-RUN apt-get update && apt-get install -y git libgomp1 && rm -rf /var/lib/apt/lists/*
-
+# Install reqs
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl git build-essential g++ libgomp1 \
+ && rm -rf /var/lib/apt/lists/*
+ 
 # Set working directory
 WORKDIR /app
 
 # Install dependencies
+COPY LICENSE .
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir autogluon.tabular[all]==1.3.1

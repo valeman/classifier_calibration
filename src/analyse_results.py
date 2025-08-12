@@ -9,6 +9,7 @@ from modules.analysis.plots import (plot_scatter_cc,
                                     plot_changes,
                                     plot_dual_rankings
 )
+from modules.common.log_config import configure_logger
 import modules.common.utils as util
 from itertools import combinations
 from typing import Tuple
@@ -78,11 +79,11 @@ def qc_input(res:dict, ds_md:dict, exp_md:dict) -> None:
     """
     #Check that all architectures are in the res dict
     if len(res.keys()) != 96:
-        print("Architectures are missing")
+        lg.info("Architectures are missing")
     #Check that all architectures were ran on all datasets in the res dict
     for arch_name in res.keys():
         if len(res[arch_name].keys()) != 30:
-            print(f"Datasets missing for {arch_name}") 
+            lg.info(f"Datasets missing for {arch_name}") 
 
     #Check that all measure values make sense for all runs for all archs on all datasets
     scs = sanity_checks()
@@ -93,7 +94,7 @@ def qc_input(res:dict, ds_md:dict, exp_md:dict) -> None:
                 status = run.get("status", "failed")
                 if status == "failed":
                     err_msg = run.get("error_message", "<no message>")
-                    print(f"{arch} failed during run {i} on {ds}: {err_msg}")
+                    lg.info(f"{arch} failed during run {i} on {ds}: {err_msg}")
                     continue
                 
                 for measure, value in run.items():
@@ -101,11 +102,11 @@ def qc_input(res:dict, ds_md:dict, exp_md:dict) -> None:
                         continue
 
                     if not util.all_numbers_and_finite(np.asarray([value])):
-                        print(f"ValueError: Run {i} ({arch} on {ds}): {measure!r}={value!r} is not a finite number")      
+                        lg.info(f"ValueError: Run {i} ({arch} on {ds}): {measure!r}={value!r} is not a finite number")      
                     
                     eval = scs[measure](value)
                     if eval:
-                        print(f"ValueError: Run {i} ({arch} on {ds}): {measure!r}={value!r}  Value {eval}")      
+                        lg.info(f"ValueError: Run {i} ({arch} on {ds}): {measure!r}={value!r}  Value {eval}")      
 
 
 def enrich_res(res:dict, ds_md:dict, exp_md:dict):
@@ -383,11 +384,14 @@ def merge_dicts(output_dir, file_name):
             path = f"{output_dir}/{dirr}"
             merged.update(util.load_dict(path, file_name))
         except FileNotFoundError:
-            print(f"No {file_name} in {path}")
+            lg.error(f"No {file_name} in {path}")
     return merged
 
 
 if __name__ == "__main__":
+    lg, progress = configure_logger()
+    lg.info(f"Starting performance evaluation")
+
     #Load and aggregate files from different sources
     # res = merge_dicts(output_dir, "results.txt")
     # ds_md = merge_dicts(output_dir, "datasets_md.txt")
@@ -397,17 +401,20 @@ if __name__ == "__main__":
     # util.save_dict_to_disk(ds_md, output_dir, "datasets_md.txt")
     # util.save_dict_to_disk(exp_md, output_dir, "experiment_md.txt")
     
-    
     #Load files
+    lg.info(f"Import experiment results from: {output_dir}")
     res = util.load_dict(output_dir, "results.txt")
     ds_md = util.load_dict(output_dir, "datasets_md.txt")
     exp_md = util.load_dict(output_dir, "experiment_md.txt")
     
     #Make sure all the data is there and makes sense
+    lg.info(f"QC data")
     qc_input(res, ds_md, exp_md)
     
-    #Analyse the data and export results 
+    #Analyse the data and export results
+    lg.info(f"Analyse results") 
     analyse_results(res, ds_md, exp_md, output_dir, assets_dir)
-    
+    lg.info(f"Ending performance evaluation")
+
 
     
