@@ -235,7 +235,7 @@ def rank_archs(inv_res:dict, ranking_m:dict, agg_key:str, dir_path:str, n_runs:i
         plot_rankings(exp_ranking_dict[agg_key][ms_name]
                       ,i_dir_path + f"exp_rank_{ms_name}.png"
                       ,title=f"Expected performance rank across folds and datasets"
-                      ,x_label=f"Performance measure: {ms_name}"
+                      ,x_label=f"Rank: {ms_name}"
                       ,top_n=3 if "lrns" in post_fix else 5
                        ,bottom_n=3 if "lrns" in post_fix else 5
                       )
@@ -257,10 +257,11 @@ def rank_phcms(delta_inv_res:dict, ranking_m:dict, agg_key:str, dir_path:str, n_
     for ms_name in exp_ranking_dict[agg_key].keys():
         i_dir_path = util.create_pwd_dir(dir_path + post_fix + f"/{ms_name}/")
         for lrn in exp_ranking_dict[agg_key][ms_name]:
+            title_str = f"Expected performance rank across folds and datasets" if lrn != agg_key else f"Expected performance rank across models, folds, and datasets"  
             plot_rankings(exp_ranking_dict[agg_key][ms_name][lrn]
                         ,i_dir_path + f"exp_rank_{lrn}_{ms_name}.png"
-                        ,title=f"Expected performance rank across folds and datasets"
-                        ,x_label=f"Performance measure: Δ {ms_name}"
+                        ,title=title_str
+                        ,x_label=f"Rank: Δ {ms_name}"
                         ,top_n=1
                         ,bottom_n=1
             )
@@ -387,16 +388,20 @@ def merge_dicts(output_dir, file_name):
 
 
 if __name__ == "__main__":
+    #Load and aggregate files from different sources
+    # res = merge_dicts(output_dir, "results.txt")
+    # ds_md = merge_dicts(output_dir, "datasets_md.txt")
+    # exp_md = merge_dicts(output_dir, "experiment_md.txt")
+    # qc_input(res, ds_md, exp_md)
+    # util.save_dict_to_disk(res, output_dir, "results.txt")
+    # util.save_dict_to_disk(ds_md, output_dir, "datasets_md.txt")
+    # util.save_dict_to_disk(exp_md, output_dir, "experiment_md.txt")
+    
+    
     #Load files
     res = util.load_dict(output_dir, "results.txt")
     ds_md = util.load_dict(output_dir, "datasets_md.txt")
     exp_md = util.load_dict(output_dir, "experiment_md.txt")
-    
-    #Load and aggregate files from different sources
-    #res = merge_dicts(output_dir, "results.txt")
-    #ds_md = merge_dicts(output_dir, "datasets_md.txt")
-    
-    #res = {k:v for k,v in res.items() if not ("ttra" in k)} #TODO:REMOVE
     
     #Make sure all the data is there and makes sense
     qc_input(res, ds_md, exp_md)

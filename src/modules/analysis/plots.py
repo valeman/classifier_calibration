@@ -266,8 +266,13 @@ def plot_dual_rankings(data: dict, archs: list, outfile: str, meas_1: str, meas_
                  fontsize=14, pad=15)
     
     # Use integer ticks for ranks
-    ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=len(archs)+5,steps=[1], integer=True))
-    ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=len(archs)+5,steps=[1], integer=True))
+    ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=len(archs),steps=[2, 4], integer=True))
+    ax.yaxis.set_major_locator(plt.MaxNLocator(nbins=len(archs),steps=[2, 4], integer=True))
+    ax.set_xlim(left=1)
+    ax.set_ylim(bottom=1)
+    ax.tick_params(axis='x', rotation=45)
+    #ax.tick_params(axis='y', rotation=45)
+    
     
     # Add grid for readability
     ax.grid(True, linestyle='--', alpha=0.4)
@@ -296,7 +301,6 @@ def plot_dual_rankings(data: dict, archs: list, outfile: str, meas_1: str, meas_
                 markersize=10,
                 label=phcm
             ))
-        
     # Position combined legend outside
     ax.legend(
         handles=legend_elements,
