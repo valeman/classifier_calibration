@@ -125,9 +125,9 @@ class ResourceTracker:
         self.user_cpu_time_sec = (u_cpu_end - self.u_cpu_start) / 1_000_000
         self.system_cpu_time_sec = (s_cpu_end - self.s_cpu_start) / 1_000_000
 
-        self.peak_memory_mib = self.max_r_memory / b_to_mib
-        self.peak_swap_mib = self.max_s_memory / b_to_mib
-        self.peak_zswap_mib = self.max_zs_memory / b_to_mib
+        self.peak_memory_mib = self.max_r_memory / b_to_mib if not isinstance(self.max_r_memory, str) else self.max_r_memory 
+        self.peak_swap_mib = self.max_s_memory / b_to_mib if not isinstance(self.max_s_memory, str) else self.max_r_memory
+        self.peak_zswap_mib = self.max_zs_memory / b_to_mib if not isinstance(self.max_zs_memory, str) else self.max_r_memory
         
         self.total_io_read_mib = (io_read_end - self.io_read_start) / b_to_mib
         self.total_io_write_mib = (io_write_end - self.io_write_start) / b_to_mib
