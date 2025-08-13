@@ -129,8 +129,8 @@ After a successful run the `./results/` directory should contain:
 python3 -m venv .venv
 source .venv/bin/activate
 ```
-### 2. Install dependencies
-### 3. Run python files
+### 2. Replicate the Dockerfile environment 
+### 3. Run python files:
 ```bash
 systemd-run --user --unit=job-1 --quiet --no-block \
   bash -c 'cd YOUR_PATH/classifier_calibration && source venv/bin/activate && python src/main.py > "job.log" 2>&1'
@@ -139,7 +139,7 @@ systemd-run --user --unit=job-1 --quiet --no-block \
 systemd-run --user --unit=job-1 --quiet --no-block \
   bash -c 'cd YOUR_PATH/classifier_calibration && source venv/bin/activate && python src/analyse_results.py >> "job.log" 2>&1'
 ```
-## where to start debugging
+## where to start debugging:
 
 - `launch.log` — environment dump, `systemctl --user` status, last journal entries before launch and service status just after launch.
 - `job.log` — the stdout/stderr of the process (the Python program inside the service). This includes logger output from `main.py` and `analyse_results.py`.
