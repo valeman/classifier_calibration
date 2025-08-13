@@ -51,7 +51,7 @@ This framework evaluates supervised tabular machine learning models on real bina
 git clone https://github.com/valeman/classifier_calibration.git
 cd classifier_calibration
 ```
-### 1. Verify System Requirements
+### 2. Verify System Requirements
 ```bash
 # Check Python version
 python3 --version
