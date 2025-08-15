@@ -20,22 +20,6 @@ This framework evaluates supervised tabular machine learning models on real bina
 ./requirements.txt      # python deps (used in Dockerfile)
 ./results/              # output produced by run (mounted volume)
 ```
-## main.py flow 
-flowchart TD
-    A[Start] --> B[Get Dataset Suite]
-    B --> C[For each dataset in suite]
-    C --> D[Preprocess dataset]
-    D --> E[For each architecture in suite]
-    E --> F[For each fold in 1x5 CV]
-    F --> G[Train architecture on training folds]
-    G --> H[Evaluate on test fold]
-    H --> I[Log performance metrics]
-    I --> J{More folds?}
-    J -->|Yes| F
-    J -->|No| K{More architectures?}
-    K -->|Yes| E
-    K -->|No| L[Save results to disk]
-    L --> M[End]
 
 ## Reproducability
 
