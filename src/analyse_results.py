@@ -18,7 +18,7 @@ from typing import Tuple
 import math, re
 import numpy as np
 
-output_dir = "archive"  # TODO:AMEND
+output_dir = "results" #TODO:AMEND
 assets_dir = "assets"
 
 
