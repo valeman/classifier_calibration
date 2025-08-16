@@ -63,7 +63,7 @@ This framework evaluates supervised tabular machine learning models on real bina
 
 ## Requirements
 - **System**: 
-  - Linux with cgroupv2 mounted at `/sys/fs/cgroup` (WSL2 supported on Windows)
+  - Ubuntu linux (or equivalent) with cgroupv2 mounted at `/sys/fs/cgroup` (WSL2 supported on Windows)
   - `systemd` available for user systemd services
 - **Software**:
   - Python 3.10+
