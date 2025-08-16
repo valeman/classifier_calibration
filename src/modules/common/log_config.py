@@ -43,9 +43,9 @@ def configure_logger() -> logging.Logger:
     rich_handler = RichHandler(
         console=console,
         rich_tracebacks=True,
-        show_time=False,    
-        show_level=False,   
-        markup=True
+        show_time=False,
+        show_level=False,
+        markup=True,
     )
 
     fmt = "[%(asctime)s | +%(elapsed)s] %(message)s"
@@ -64,5 +64,5 @@ def configure_logger() -> logging.Logger:
         TimeRemainingColumn(),
         console=console,
     )
-    
+
     return logging.getLogger("app"), progress

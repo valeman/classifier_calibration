@@ -17,15 +17,19 @@ def get_max_ram_mib() -> int:
                 parts = line.split()
                 total_kib = int(parts[1])
                 total_bytes = total_kib * 1024
-                return total_bytes // (1024 ** 2)
+                return total_bytes // (1024**2)
     raise RuntimeError("MemTotal not found in /proc/meminfo")
+
 
 class TimeoutException(Exception):
     """Custom exception used specifically for signaling timeouts."""
+
     pass
+
 
 def handler(signum, frame):
     raise TimeoutException("Run timed out after time limit.")
+
 
 def run_with_timeout(seconds, func, *args, **kwargs):
     original_handler = signal.getsignal(signal.SIGALRM)
@@ -37,16 +41,19 @@ def run_with_timeout(seconds, func, *args, **kwargs):
         signal.alarm(0)  # Disable the alarm
         signal.signal(signal.SIGALRM, original_handler)
 
+
 def format_time(seconds):
     if seconds is None:
         return "-:--:--"
     return str(timedelta(seconds=int(seconds)))
 
+
 def time_now():
     now = datetime.now()
     return now.strftime("%Y-%m-%d %H:%M:%S")
 
-def get_unique_id(existing:list, pre_fix:str, random_seed:int=123) -> str:
+
+def get_unique_id(existing: list, pre_fix: str, random_seed: int = 123) -> str:
     """Returns a unique str not in the existing list
 
     Args:
@@ -79,20 +86,20 @@ def all_numbers_and_finite(arr: np.ndarray) -> bool:
     # 2) Are all entries finite?
     return np.isfinite(f).all()
 
-        
-def save_dict_to_disk(data:dict, output_dir:str, file_name:str) -> None:
+
+def save_dict_to_disk(data: dict, output_dir: str, file_name: str) -> None:
     """
-    Save the data dict to file_name in the given directory 
+    Save the data dict to file_name in the given directory
     under the current working directory
 
     Args:
         data (dict)
         output_dir (str)
-        file_name (str) 
+        file_name (str)
     """
     create_pwd_dir(output_dir)
     filename = os.path.join(output_dir, file_name)
-    with open(filename, 'w', encoding='utf-8') as f:
+    with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
@@ -126,7 +133,7 @@ def load_dict(output_dir: str, file_name: str) -> dict:
     if not os.path.isfile(path):
         raise FileNotFoundError(f"Cannot find file at {path!r}")
 
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, "r", encoding="utf-8") as f:
         obj = json.load(f)
 
     if not isinstance(obj, dict):
@@ -139,5 +146,8 @@ def create_pwd_dir(path):
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     return OUTPUT_DIR
 
+
 def get_subdirs(path):
-    return [name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))]
+    return [
+        name for name in os.listdir(path) if os.path.isdir(os.path.join(path, name))
+    ]
