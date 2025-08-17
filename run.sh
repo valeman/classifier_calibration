@@ -38,6 +38,7 @@ systemd-run --user \
   --working-directory="$repo_dir" \
   --quiet \
   --no-block \
+  --property="Delegate=yes" \
   --property="StandardOutput=file:$logfile" \
   --property="StandardError=inherit" \
   bash -c '
