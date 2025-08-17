@@ -132,11 +132,11 @@ source .venv/bin/activate
 ### 2. Replicate the Dockerfile environment 
 ### 3. Run python files:
 ```bash
-systemd-run --user --unit=job-1 --quiet --no-block \
+systemd-run --user --unit=job-1 --quiet --no-block --property=Delegate=yes \
   bash -c 'cd YOUR_PATH/classifier_calibration && source venv/bin/activate && python src/main.py > "job.log" 2>&1'
 ```
 ```bash
-systemd-run --user --unit=job-1 --quiet --no-block \
+systemd-run --user --unit=job-1 --quiet --no-block --property=Delegate=yes \
   bash -c 'cd YOUR_PATH/classifier_calibration && source venv/bin/activate && python src/analyse_results.py >> "job.log" 2>&1'
 ```
 ## where to start debugging:
