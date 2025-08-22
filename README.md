@@ -37,6 +37,7 @@ This framework evaluates supervised tabular machine learning models on real bina
 |-------|----------------|
 | Support Vector Machine | [scikit-learn SVC](https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html) |
 | Linear Discriminant Analysis | [scikit-learn LinearDiscriminantAnalysis](https://scikit-learn.org/stable/modules/generated/sklearn.discriminant_analysis.LinearDiscriminantAnalysis.html) |
+| Naïve bayes | [scikit-learn GaussianNB](https://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.GaussianNB.html#sklearn.naive_bayes.GaussianNB) |
 | Logistic Regression | [scikit-learn LogisticRegression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html) |
 | K-Nearest Neighbours | [scikit-learn KNeighborsClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KNeighborsClassifier.html) |
 | Random Forest | [scikit-learn RandomForestClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html) |
