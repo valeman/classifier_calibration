@@ -114,7 +114,7 @@ tail -f job.log     # Job execution logs
 After a successful run the `./results/` directory should contain:
 
 ```
-./results/
+.src/results/
 ├─ results.txt           # Nested dict with measurements (arch -> dataset -> [runs])
 ├─ datasets_md.txt       # Per-dataset metadata collected by DatasetSuite
 ├─ experiment_md.txt     # Experiment metadata (seed, machine specs)

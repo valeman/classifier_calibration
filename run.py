@@ -3,7 +3,7 @@ import os
 import subprocess
 
 IMAGE_NAME = "classifier-calibration:v1"
-OUTPUT_DIR = os.path.join(os.getcwd(), "results")
+OUTPUT_DIR = os.path.join(os.getcwd(), "src" ,"results")
 
 # Ensure the OS is not Windows
 if platform.system() == "Windows":
