@@ -4,6 +4,7 @@ from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
+from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.dummy import DummyClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -142,6 +143,7 @@ def get_v1(SEED: int, n_cores: int = -1):
     "svm": Support vector machine
     "lr": Logistic Regression
     "avg": Empirical class distribution of target (Dummy)
+    "gp": Gaussian process classification (GPC)
     "nb": Naive Bayes
     "lda": Linear Discriminant Analysis
     "knn": K-Nearest Neighbours
@@ -300,6 +302,16 @@ def get_v1(SEED: int, n_cores: int = -1):
         predict_prob_fn=md_std_predict_prob,
     )
     learners.append(avg)
+
+    gp_instantiator = lambda meta_data: {"random_state": SEED, "n_jobs":n_cores}
+    gp = Learner(
+        learner_name="gp",
+        learner_class=GaussianProcessClassifier,
+        instatiator_fn=gp_instantiator,
+        fit_fn=md_std_fit,
+        predict_prob_fn=md_std_predict_prob,
+    )
+    learners.append(gp)
 
     nca_instantiator = lambda meta_data: {
         "model": "nca",
