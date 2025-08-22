@@ -4,6 +4,7 @@ from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
+from sklearn.dummy import DummyClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.neighbors import KNeighborsClassifier
@@ -140,6 +141,7 @@ def get_v1(SEED: int, n_cores: int = -1):
     """
     "svm": Support vector machine
     "lr": Logistic Regression
+    "avg": Empirical class distribution of target (Dummy)
     "nb": Naive Bayes
     "lda": Linear Discriminant Analysis
     "knn": K-Nearest Neighbours
@@ -289,7 +291,15 @@ def get_v1(SEED: int, n_cores: int = -1):
     )
     learners.append(nb)
 
-    
+    avg_instantiator = lambda meta_data: {"strategy":"prior", "random_state": SEED}
+    avg = Learner(
+        learner_name="avg",
+        learner_class=DummyClassifier,
+        instatiator_fn=avg_instantiator,
+        fit_fn=md_std_fit,
+        predict_prob_fn=md_std_predict_prob,
+    )
+    learners.append(avg)
 
     nca_instantiator = lambda meta_data: {
         "model": "nca",
