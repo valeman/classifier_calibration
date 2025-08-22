@@ -4,6 +4,7 @@ from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.neural_network import MLPClassifier
@@ -138,6 +139,7 @@ def get_v1(SEED: int, n_cores: int = -1):
     """
     "svm": Support vector machine
     "lr": Logistic Regression
+    "lda": Linear Discriminant Analysis
     "knn": K-Nearest Neighbours
     "rf": RandomForest
     "ext": ExtraTrees
@@ -265,6 +267,18 @@ def get_v1(SEED: int, n_cores: int = -1):
     )
     learners.append(svm)
 
+    lda_instantiator = lambda meta_data: {}
+    lda = Learner(
+        learner_name="lda",
+        learner_class=LinearDiscriminantAnalysis,
+        instatiator_fn=lda_instantiator,
+        fit_fn=md_std_fit,
+        predict_prob_fn=md_std_predict_prob,
+    )
+    learners.append(lda)
+
+    
+
     nca_instantiator = lambda meta_data: {
         "model": "nca",
         "continuous_cols": meta_data["non_cat_features"],
@@ -379,5 +393,5 @@ def get_v1(SEED: int, n_cores: int = -1):
         pre_trained=True,
     )
     learners.append(tpfn)
-    
+    learners = [l for l in learners if l.learner_name in ["ticl"]]  # TODO: AMEND
     return learners
