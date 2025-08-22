@@ -9,7 +9,7 @@ from sklearn.dummy import DummyClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, GradientBoostingClassifier
 from sklearn.neural_network import MLPClassifier
 from pytorch_tabular import TabularModel
 from pytorch_tabular.models import TabTransformerConfig
@@ -148,6 +148,7 @@ def get_v1(SEED: int, n_cores: int = -1):
     "lda": Linear Discriminant Analysis
     "knn": K-Nearest Neighbours
     "rf": RandomForest
+    "gbc" Gradient Boosting 
     "ext": ExtraTrees
     "ebm": Explainable Boosting Machine
     "cb": Catboost
@@ -211,6 +212,16 @@ def get_v1(SEED: int, n_cores: int = -1):
         predict_prob_fn=md_std_predict_prob,
     )
     learners.append(rf)
+
+    gbc_instantiator = lambda meta_data: {"random_state": SEED}
+    gbc = Learner(
+        learner_name="gbc",
+        learner_class=GradientBoostingClassifier,
+        instatiator_fn=gbc_instantiator,
+        fit_fn=md_std_fit,
+        predict_prob_fn=md_std_predict_prob,
+    )
+    learners.append(gbc)
 
     xgb_instantiator = lambda meta_data: {
         "random_state": SEED,
