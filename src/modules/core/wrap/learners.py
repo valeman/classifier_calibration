@@ -454,5 +454,4 @@ def get_v1(SEED: int, n_cores: int = -1):
         pre_trained=True,
     )
     learners.append(tpfn)
-    learners = [l for l in learners if l.learner_name in ["ticl"]]  # TODO: AMEND
     return learners
