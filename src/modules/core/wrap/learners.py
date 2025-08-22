@@ -4,6 +4,7 @@ from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
@@ -139,6 +140,7 @@ def get_v1(SEED: int, n_cores: int = -1):
     """
     "svm": Support vector machine
     "lr": Logistic Regression
+    "nb": Naive Bayes
     "lda": Linear Discriminant Analysis
     "knn": K-Nearest Neighbours
     "rf": RandomForest
@@ -276,6 +278,16 @@ def get_v1(SEED: int, n_cores: int = -1):
         predict_prob_fn=md_std_predict_prob,
     )
     learners.append(lda)
+
+    nb_instantiator = lambda meta_data: {}
+    nb = Learner(
+        learner_name="nb",
+        learner_class=GaussianNB,
+        instatiator_fn=nb_instantiator,
+        fit_fn=md_std_fit,
+        predict_prob_fn=md_std_predict_prob,
+    )
+    learners.append(nb)
 
     
 
