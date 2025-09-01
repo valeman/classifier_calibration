@@ -134,6 +134,19 @@ class WrapTabRepoModels:
     def predict_proba(self, x: pd.DataFrame) -> np.array:
         return self.clf.predict_proba(X=x)
 
+class WrapKDEClassifier:
+    def __init__(self):
+        self.clf = KDEClassifier()
+    
+    def fit(self, x: pd.DataFrame, y: pd.Series) -> None:
+        self.clf.fit(x.to_numpy(), y.to_numpy())
+
+    def predict_proba(self, x: pd.DataFrame) -> np.array:
+        return self.clf.predict_proba(x.to_numpy())
+
+
+
+
 
 def get_learners(suite: str, random_seed: int = 123, n_cores: int = -1):
     match suite:
@@ -285,7 +298,7 @@ def get_v1(SEED: int, n_cores: int = -1):
     kde_instantiator = lambda meta_data: {}
     kde = Learner(
         learner_name="kde",
-        learner_class=KDEClassifier,
+        learner_class=WrapKDEClassifier,
         instatiator_fn=kde_instantiator,
         fit_fn=md_std_fit,
         predict_prob_fn=md_std_predict_prob,
