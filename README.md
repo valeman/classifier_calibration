@@ -1,6 +1,6 @@
 # Classifier Calibration Evaluation Framework
 
-This framework evaluates supervised tabular machine learning models on real binary classification problems, specifically analyzing performance changes after applying post-hoc calibration methods trained on a held-out calibration set. The evaluation uses the [TabArena-v0.1 Suite](https://www.openml.org/search?type=study&study_type=task&id=457) of datasets.
+This framework evaluates supervised tabular machine learning models on real I.I.D. binary classification problems, specifically analyzing performance changes on out-of-sample test sets after applying post-hoc calibration methods trained on a held-out calibration set. The evaluation uses the [TabArena-v0.1 Suite](https://www.openml.org/search?type=study&study_type=task&id=457) of datasets.
 
 ## Key Features
 - **Models**: 15+  classifiers
@@ -25,7 +25,7 @@ This framework evaluates supervised tabular machine learning models on real bina
 
 `main.py` intentionally seeds multiple RNGs to reduce nondeterminism:
 
-- `SEED = 123456789` — applied to `random.seed()`, `numpy.random.seed()`, `torch.manual_seed()` and `PYTHONHASHSEED`.
+- `SEED = 123456789` — applied to `random.seed()`, `numpy.random.seed()`, `torch.manual_seed()`, `PYTHONHASHSEED` and generally wherever it's taken as a parameter.
 - Threading / BLAS environments are pinned with environment variables and PyTorch thread controls:
   - `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS`, `NUMEXPR_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS`, `KMP_AFFINITY` and PyTorch `set_num_threads` / `set_num_interop_threads`.
 
@@ -33,10 +33,17 @@ This framework evaluates supervised tabular machine learning models on real bina
 
 
 ## Models Evaluated
+All implementations are found in:
+```
+.src/modules/core/wrap/
+├─ learners.py
+```
+
 | Model | Implementation |
 |-------|----------------|
 | Empirical class distribution of target (Dummy) | [scikit-learn DummyClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.dummy.DummyClassifier.html#sklearn.dummy.DummyClassifier) |
 | Support Vector Machine | [scikit-learn SVC](https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html) |
+| Kernel Density Estimation Classifier | [bootleg KDEClassifier](https://github.com/danielftg/KDEClassifier) |
 | Linear Discriminant Analysis | [scikit-learn LinearDiscriminantAnalysis](https://scikit-learn.org/stable/modules/generated/sklearn.discriminant_analysis.LinearDiscriminantAnalysis.html) |
 | Naïve bayes | [scikit-learn GaussianNB](https://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.GaussianNB.html#sklearn.naive_bayes.GaussianNB) |
 | Gaussian process classification | [scikit-learn GaussianProcessClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.GaussianProcessClassifier.html#sklearn.gaussian_process.GaussianProcessClassifier) |
@@ -46,19 +53,25 @@ This framework evaluates supervised tabular machine learning models on real bina
 | Gradient Boosting | [scikit-learn GradientBoostingClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingClassifier.html#sklearn.ensemble.GradientBoostingClassifier) |
 | Histogram Gradient Boosting | [scikit-learn HistGradientBoostingClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingClassifier.html) |
 | ExtraTrees | [scikit-learn ExtraTreesClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.ExtraTreesClassifier.html) |
-| Explainable Boosting Machine | [InterpretML EBM](https://interpret.ml/docs/ebm.html) |
+| Explainable Boosting Machine | [InterpretML ExplainableBoostingClassifier](https://interpret.ml/docs/ebm.html) |
 | CatBoost | [CatBoostClassifier](https://catboost.ai/docs/en/concepts/python-reference_catboostclassifier) |
-| XGBoost | [XGBoost Python API](https://federated-xgboost.readthedocs.io/en/latest/python/python_api.html) |
+| XGBoost | [XGBClassifier](https://federated-xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn) |
 | LightGBM | [LGBMClassifier](https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.LGBMClassifier.html) |
-| ModernNCA | [TabRepo](https://github.com/autogluon/tabrepo) |
-| TabTransformer | [PyTorch Tabular](https://pytorch-tabular.readthedocs.io/en/latest/) |
-| TabICL | [TabRepo](https://github.com/autogluon/tabrepo) |
-| TabPFN | [PriorLabs/TabPFN](https://github.com/PriorLabs/TabPFN) |
-| TabM | [TabRepo](https://github.com/autogluon/tabrepo) |
+| ModernNCA | [TabRepo ModernNCAModel](https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag) |
+| TabTransformer | [PyTorch Tabular TabTransformerConfig](https://pytorch-tabular.readthedocs.io/en/latest/apidocs_model/#pytorch_tabular.models.TabTransformerConfig) |
+| TabICL | [TabRepo TabICLModel](https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag) |
+| TabPFN v2 | [PriorLabs TabPFN](https://github.com/PriorLabs/TabPFN/blob/main/src/tabpfn/classifier.py) |
+| TabM | [TabRepo TabMModel](https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag) |
 | Multilayer Perceptron | [scikit-learn MLPClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPClassifier.html) |
-| Real MLP | [TabRepo](https://github.com/autogluon/tabrepo) |
+| Real MLP | [TabRepo RealMLPModel](https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag) |
 
 ## Calibration Methods
+All implementations are found in:
+```
+.src/modules/core/wrap/
+├─ post_processing.py
+```
+
 | Method | Implementation |
 |--------|----------------|
 | Platt Scaling | [scikit-learn LogisticRegression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html) |
@@ -117,7 +130,7 @@ tail -f launch.log  # System service logs
 tail -f job.log     # Job execution logs
 ```
 ### 5. Review results
-After a successful run the `./results/` directory should contain:
+After a successful run the `.src/results/` directory should contain:
 
 ```
 .src/results/
@@ -127,7 +140,6 @@ After a successful run the `./results/` directory should contain:
 ├─ assets/               # Plots and images generated by analyse_results.py
 └─ <optional-subdirs>    # If merging outputs across jobs/runs
 ```
-
 
 ## Manual Execution (Without Docker)
 ### 1. Create virtual environment:
