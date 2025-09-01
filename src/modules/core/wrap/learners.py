@@ -2,6 +2,7 @@ from modules.core.wrap.wrappers import Learner
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
+from kde_classifier import KDEClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.gaussian_process import GaussianProcessClassifier
@@ -146,6 +147,7 @@ def get_learners(suite: str, random_seed: int = 123, n_cores: int = -1):
 def get_v1(SEED: int, n_cores: int = -1):
     """
     "svm": Support vector machine
+    "kde" KDEClassifier
     "lr": Logistic Regression
     "avg": Empirical class distribution of target (Dummy)
     "gp": Gaussian process classification (GPC)
@@ -279,7 +281,17 @@ def get_v1(SEED: int, n_cores: int = -1):
         predict_prob_fn=md_lr_predict_prob,
     )
     learners.append(lr)
-
+    
+    kde_instantiator = lambda meta_data: {}
+    kde = Learner(
+        learner_name="kde",
+        learner_class=KDEClassifier,
+        instatiator_fn=kde_instantiator,
+        fit_fn=md_std_fit,
+        predict_prob_fn=md_std_predict_prob,
+    )
+    learners.append(kde)
+    
     knn_instantiator = lambda meta_data: {"n_jobs": n_cores}
     knn = Learner(
         learner_name="knn",
