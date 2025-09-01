@@ -244,7 +244,10 @@ def get_v1(SEED: int, n_cores: int = -1):
     )
     learners.append(gbc)
 
-    hgb_instantiator = lambda meta_data: {"random_state": SEED, "categorical_features":"from_dtype"}
+    hgb_instantiator = lambda meta_data: {"random_state": SEED
+                                          , "categorical_features":"from_dtype"
+                                          , "max_bins": 1_000_000 #Won't run when the cardinality of a categorical is higher then max_bins
+                                          }
     hgb = Learner(
         learner_name="hgb",
         learner_class=HistGradientBoostingClassifier,
