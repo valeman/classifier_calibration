@@ -3,7 +3,11 @@ import os
 import subprocess
 
 IMAGE_NAME = "classifier-calibration:v1"
-OUTPUT_DIR = os.path.join(os.getcwd(), "results")
+OUTPUT_DIR = os.path.join(os.getcwd(), "src" ,"results")
+
+# Ensure the OS is not Windows
+if platform.system() == "Windows":
+    raise OSError("Host OS must be Linux with cgroupv2")
 
 # Ensure host output dir exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -11,18 +15,13 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # Build the image
 subprocess.run(["docker", "build", "-t", IMAGE_NAME, "."], check=True)
 
-# Determine the volume mount string
-if platform.system() == "Windows":
-    host_path = OUTPUT_DIR.replace("\\", "/")
-else:
-    host_path = OUTPUT_DIR
-
-volume_arg = f"{host_path}:/app/results"
-
 # Run the container
+volume_arg = f"{OUTPUT_DIR}:/app/results"
 subprocess.run([
     "docker", "run",
     "--rm",
+    "--cgroupns=host",
+    "-v", "/sys/fs/cgroup:/sys/fs/cgroup:ro",
     "-v", volume_arg,
     IMAGE_NAME
 ], check=True)
