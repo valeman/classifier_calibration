@@ -31,6 +31,11 @@ This framework evaluates supervised tabular machine learning models on real I.I.
 
 **Note:** perfect bitwise reproducibility across different kernel versions, CPU architectures, BLAS libraries, or PyTorch builds is *not guaranteed*. The seed and thread controls make runs highly consistent for research comparisons but small numeric drift is still possible. 
 
+To review the raw data and execution logs of our experiments see:
+```
+.src/archive/
+├─ archive.zip
+```
 
 ## Models Evaluated
 All implementations are found in:
