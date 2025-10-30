@@ -15,6 +15,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir autogluon.tabular[all]==1.3.1
 RUN pip install --no-cache-dir git+https://github.com/autogluon/tabrepo.git@3396519469875a85e8a8090ee96821e409e09740#egg=tabrepo[benchmark]
+RUN pip install --upgrade "scipy>=1.11.4,<1.13"
 
 # Copy application code
 COPY src/ .  

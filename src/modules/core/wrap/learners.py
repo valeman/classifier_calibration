@@ -1,11 +1,10 @@
+from threadpoolctl import threadpool_limits
 from modules.core.wrap.wrappers import Learner
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
 from lightgbm import LGBMClassifier
-from kde_classifier import KDEClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
-from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.dummy import DummyClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -29,6 +28,7 @@ from tabrepo.benchmark.models.ag import (
     RealMLPModel,
 )
 from interpret.glassbox import ExplainableBoostingClassifier
+from modules.common.utils import perturb_probs
 import pandas as pd
 import numpy as np
 
@@ -133,18 +133,27 @@ class WrapTabRepoModels:
 
     def predict_proba(self, x: pd.DataFrame) -> np.array:
         return self.clf.predict_proba(X=x)
-
-class WrapKDEClassifier:
-    def __init__(self):
-        self.clf = KDEClassifier()
     
+class WrapDummyClassifier:
+    """
+    The WrapDummyClassifier class wraps DummyClassifier to implement a tie breaker. 
+    """
+    def __init__(self, strategy, random_state):
+        self.clf = DummyClassifier(strategy=strategy, random_state=random_state)
+        self.random_state = random_state
+
     def fit(self, x: pd.DataFrame, y: pd.Series) -> None:
-        self.clf.fit(x.to_numpy(), y.to_numpy())
-
+        self.clf.fit(x,y)
+      
     def predict_proba(self, x: pd.DataFrame) -> np.array:
-        return self.clf.predict_proba(x.to_numpy())
-
-
+        """
+        The target average classifier outputs constant class scores which break CalFram and Beta calibration when the scores
+        are close too 0.5  
+        A small random delta is added to the output to avoid this with marginal effect on performance assesments
+        """
+        y_prob = self.clf.predict_proba(x)
+        y_prob = perturb_probs(y_prob, delta=0.02, random_state=self.random_state)
+        return y_prob
 
 
 
@@ -160,10 +169,8 @@ def get_learners(suite: str, random_seed: int = 123, n_cores: int = -1):
 def get_v1(SEED: int, n_cores: int = -1):
     """
     "svm": Support vector machine
-    "kde" KDEClassifier
     "lr": Logistic Regression
     "avg": Empirical class distribution of target (Dummy)
-    "gp": Gaussian process classification (GPC)
     "nb": Naive Bayes
     "lda": Linear Discriminant Analysis
     "knn": K-Nearest Neighbours
@@ -186,6 +193,10 @@ def get_v1(SEED: int, n_cores: int = -1):
     learners = []
     md_std_fit = lambda learner, x, y: learner.fit(x, y)
     md_std_predict_prob = lambda learner, x: learner.predict_proba(x)
+
+    md_np_fit = lambda learner, x, y: learner.fit(x.to_numpy(), y.to_numpy())
+    md_np_predict_prob = lambda learner, x: learner.predict_proba(x.to_numpy())
+
 
     ext_instantiator = lambda meta_data: {"random_state": SEED, "n_jobs": n_cores}
     ext = Learner(
@@ -245,15 +256,15 @@ def get_v1(SEED: int, n_cores: int = -1):
     learners.append(gbc)
 
     hgb_instantiator = lambda meta_data: {"random_state": SEED
-                                          , "categorical_features":"from_dtype"
-                                          , "max_bins": 1_000_000 #Won't run when the cardinality of a categorical is higher then max_bins
+                                          #Categorical features not used. 
+                                          #Won't run when the cardinality of a categorical is higher then 255. 
                                           }
     hgb = Learner(
         learner_name="hgb",
         learner_class=HistGradientBoostingClassifier,
         instatiator_fn=hgb_instantiator,
-        fit_fn=md_std_fit,
-        predict_prob_fn=md_std_predict_prob,
+        fit_fn=md_np_fit,
+        predict_prob_fn=md_np_predict_prob,
     )
     learners.append(hgb)
 
@@ -298,16 +309,6 @@ def get_v1(SEED: int, n_cores: int = -1):
     )
     learners.append(lr)
     
-    kde_instantiator = lambda meta_data: {}
-    kde = Learner(
-        learner_name="kde",
-        learner_class=WrapKDEClassifier,
-        instatiator_fn=kde_instantiator,
-        fit_fn=md_std_fit,
-        predict_prob_fn=md_std_predict_prob,
-    )
-    learners.append(kde)
-    
     knn_instantiator = lambda meta_data: {"n_jobs": n_cores}
     knn = Learner(
         learner_name="knn",
@@ -333,8 +334,8 @@ def get_v1(SEED: int, n_cores: int = -1):
         learner_name="lda",
         learner_class=LinearDiscriminantAnalysis,
         instatiator_fn=lda_instantiator,
-        fit_fn=md_std_fit,
-        predict_prob_fn=md_std_predict_prob,
+        fit_fn=md_np_fit,
+        predict_prob_fn=md_np_predict_prob,
     )
     learners.append(lda)
 
@@ -343,30 +344,20 @@ def get_v1(SEED: int, n_cores: int = -1):
         learner_name="nb",
         learner_class=GaussianNB,
         instatiator_fn=nb_instantiator,
-        fit_fn=md_std_fit,
-        predict_prob_fn=md_std_predict_prob,
+        fit_fn=md_np_fit,
+        predict_prob_fn=md_np_predict_prob,
     )
     learners.append(nb)
 
     avg_instantiator = lambda meta_data: {"strategy":"prior", "random_state": SEED}
     avg = Learner(
         learner_name="avg",
-        learner_class=DummyClassifier,
+        learner_class=WrapDummyClassifier,
         instatiator_fn=avg_instantiator,
         fit_fn=md_std_fit,
         predict_prob_fn=md_std_predict_prob,
     )
     learners.append(avg)
-
-    gp_instantiator = lambda meta_data: {"random_state": SEED, "n_jobs":n_cores}
-    gp = Learner(
-        learner_name="gp",
-        learner_class=GaussianProcessClassifier,
-        instatiator_fn=gp_instantiator,
-        fit_fn=md_std_fit,
-        predict_prob_fn=md_std_predict_prob,
-    )
-    learners.append(gp)
 
     nca_instantiator = lambda meta_data: {
         "model": "nca",
@@ -482,4 +473,5 @@ def get_v1(SEED: int, n_cores: int = -1):
         pre_trained=True,
     )
     learners.append(tpfn)
+   
     return learners

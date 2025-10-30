@@ -38,7 +38,7 @@ class EvaluationStrategy:
                 raise NotImplementedError
 
     def run(
-        self, arch: Architecture, max_time_sec: int = 60 * 60 * 6 * 3
+        self, arch: Architecture, max_time_sec: int = 60 * 60 * 24 * 3 
     ) -> list[dict]:
         results = []
         count = 0

@@ -7,15 +7,18 @@ from modules.core.data import DatasetSuite
 from multiprocessing import cpu_count
 import modules.common.utils as util
 import os, traceback, time
-from random import seed
 from numpy import random
+from random import seed
 
 SEED = 123456789
 ds_suite_name = "Tabarena-v0.1-binary"
 eval_strat_name = "5-fold-CV"
 study_version = "v.1"
-output_dir = "results" #TODO:AMEND
+output_dir = "results"
 
+os.environ.setdefault(
+    "OPENBLAS_CORETYPE", "sandybridge"
+) #You don't necessarily need this. 
 os.environ.setdefault(
     "TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1"
 )  # Unsafe. Don't do this in prod.

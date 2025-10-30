@@ -18,9 +18,8 @@ from typing import Tuple
 import math, re
 import numpy as np
 
-output_dir = "results" #TODO:AMEND
+output_dir = "results"
 assets_dir = "assets"
-
 
 def sanity_checks() -> dict:
     """
@@ -81,7 +80,7 @@ def qc_input(res: dict, ds_md: dict, exp_md: dict) -> None:
         exp_md (dict): The experiment meta_data dict output from main.py
     """
     # Check that all architectures are in the res dict
-    if len(res.keys()) != 96:
+    if len(res.keys()) != 126:
         lg.info("Architectures are missing")
     # Check that all architectures were ran on all datasets in the res dict
     for arch_name in res.keys():
@@ -94,11 +93,11 @@ def qc_input(res: dict, ds_md: dict, exp_md: dict) -> None:
         for ds, runs in dss.items():
             for i, run in enumerate(runs):
 
-                status = run.get("status", "failed")
-                if status == "failed":
-                    err_msg = run.get("error_message", "<no message>")
+                status = run["status"]
+                if (status.lower().strip() != "success") or ("err_msg" in run.keys()):
+                    err_msg = run["error_message"]
                     lg.info(f"{arch} failed during run {i} on {ds}: {err_msg}")
-                    continue
+                    break
 
                 for measure, value in run.items():
                     if measure == "status":
