@@ -2,6 +2,8 @@
 
 This framework evaluates supervised tabular machine learning models on real I.I.D. binary classification problems, specifically analyzing performance changes on out-of-sample test sets after applying post-hoc calibration methods trained on a held-out calibration set. The evaluation uses the [TabArena-v0.1 Suite](https://www.openml.org/search?type=study&study_type=task&id=457) of datasets.
 
+Accompanying paper: [Classifier Calibration at Scale: An Empirical Study of Model-Agnostic Post-Hoc Methods](https://arxiv.org/abs/2601.19944)
+
 ## Key Features
 - **Models**: 15+  classifiers
 - **Calibration Methods**: 5 post-hoc calibration methods
