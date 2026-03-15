@@ -62,13 +62,13 @@ All implementations are found in:
 | CatBoost | [CatBoostClassifier](https://catboost.ai/docs/en/concepts/python-reference_catboostclassifier) |
 | XGBoost | [XGBClassifier](https://federated-xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn) |
 | LightGBM | [LGBMClassifier](https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.LGBMClassifier.html) |
-| ModernNCA | [TabRepo ModernNCAModel](https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag) |
+| ModernNCA | [TabRepo ModernNCAModel]([https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag](https://github.com/autogluon/tabarena/tree/3396519469875a85e8a8090ee96821e409e09740/tabrepo/benchmark/models/ag/modernnca)) |
 | TabTransformer | [PyTorch Tabular TabTransformerConfig](https://pytorch-tabular.readthedocs.io/en/latest/apidocs_model/#pytorch_tabular.models.TabTransformerConfig) |
-| TabICL | [TabRepo TabICLModel](https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag) |
+| TabICL | [TabRepo TabICLModel]([https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag](https://github.com/autogluon/tabarena/tree/3396519469875a85e8a8090ee96821e409e09740/tabrepo/benchmark/models/ag/tabicl)) |
 | TabPFN v2 | [PriorLabs TabPFN](https://github.com/PriorLabs/TabPFN/blob/main/src/tabpfn/classifier.py) |
-| TabM | [TabRepo TabMModel](https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag) |
+| TabM | [TabRepo TabMModel]([https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag](https://github.com/autogluon/tabarena/tree/3396519469875a85e8a8090ee96821e409e09740/tabrepo/benchmark/models/ag/tabm)) |
 | Multilayer Perceptron | [scikit-learn MLPClassifier](https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPClassifier.html) |
-| Real MLP | [TabRepo RealMLPModel](https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag) |
+| Real MLP | [TabRepo RealMLPModel]([https://github.com/autogluon/tabrepo/tree/main/tabrepo/benchmark/models/ag](https://github.com/autogluon/tabarena/tree/3396519469875a85e8a8090ee96821e409e09740/tabrepo/benchmark/models/ag/realmlp)) |
 
 ## Calibration Methods
 All implementations are found in:
